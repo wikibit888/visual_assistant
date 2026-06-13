@@ -18,7 +18,7 @@ dependencies = [
     "httpx>=0.27",            # Open-Meteo / 供应商 REST
     # —— 模型供应商 SDK（仅非 MOCK 路径需要）——
     "openai>=1.30",          # OpenAI；deepseek 复用其兼容协议
-    "google-generativeai>=0.7",  # Gemini（vision + asr/tts 默认占位）
+    "google-genai>=1.0",     # Gemini 新版 SDK（vision + asr/tts；旧 google-generativeai 已弃用）
 ]
 
 [dependency-groups]

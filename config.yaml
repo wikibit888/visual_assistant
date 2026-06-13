@@ -26,12 +26,14 @@ roles:
   vision:                        # 契约三；[决策 A1] = gemini（deepseek 无多模态）
     provider: gemini
     model: gemini-2.5-flash
-  asr:                           # 契约二；[决策 A2] gemini 生态占位，M1 定具体 STT
+  asr:                           # 契约二；[决策 M3-01] gemini-2.5-flash 单次音频理解→转写
     provider: gemini
     model: gemini-2.5-flash
-  tts:                           # 契约二；[决策 A2] gemini 生态占位，M1 定具体 TTS
+    confidence_fixed: 0.9        # [M3-01] Gemini 不返回转写置信度 → AsrFinal.confidence 兜底用
+  tts:                           # 契约二；[决策 M3-01] gemini-2.5-flash-preview-tts（修正旧错误 ID）
     provider: gemini
-    model: gemini-2.5-flash-tts
+    model: gemini-2.5-flash-preview-tts
+    voice: Kore                  # [M3-01] 预置音色
 
 # ── 编排循环 / 确定性护栏（契约八，agent 不可覆盖）──
 orchestration:
@@ -40,6 +42,8 @@ orchestration:
   vision_budget_per_problem: 3   # §3.1 识题1 + 批改≤2
   vision_retry_max: 1            # [决策 A4] PRD 未给值，缺省 1
   confidence_gate: 0.6           # [决策 A4] 置信门控阈值（vision.confidence 低于此 → 兜底）
+  asr_retry_max: 1               # [M3-01] 仿 vision_retry_max（M3-02 ASR 适配器用）
+  tts_retry_max: 1               # [M3-01] TTS 偶发 500 需重试（M3-03 TTS 适配器用）
 
 # ── rails（M2 硬门兜底；与 agentic 同代码、config 切换）──
 rails:

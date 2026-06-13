@@ -5,7 +5,7 @@
   api_base / api_key_env；密钥从 .env 环境变量读（禁硬编码模型名/密钥/base_url——契约七）。
 - deepseek：OpenAI 兼容协议，复用 openai SDK + providers.deepseek.api_base
 - openai：openai SDK
-- gemini：google-generativeai
+- gemini：google-genai（新版 `from google import genai`；返回 per-call model 的 genai.Client）
 - MOCK_LLM=1（通用）/ MOCK_PLANNER=1（planner 角色）→ 返回不联网桩，模块可独立跑（契约六）。
 
 真实 SDK 一律延迟导入：MOCK 路径零外部依赖、可独立运行。
@@ -91,9 +91,10 @@ def client_for_role(role: str, cfg: dict):
 
         return OpenAI(api_key=api_key, base_url=api_base)
     if provider == "gemini":
-        import google.generativeai as genai
+        # 新版 SDK：Developer API 传 api_key 即用 generativelanguage 后端；model 为 per-call
+        # 入参（调用方从 config 传），故此处只返回 Client、不绑定 model。延迟导入保 MOCK 零依赖。
+        from google import genai
 
-        genai.configure(api_key=api_key)
-        return genai.GenerativeModel(model)
+        return genai.Client(api_key=api_key)
 
     raise ValueError(f"不支持的 provider={provider!r}")  # _resolve 已校验，理论不达

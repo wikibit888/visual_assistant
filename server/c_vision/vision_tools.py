@@ -1,7 +1,7 @@
 """C · vision.* 工具实现（契约三）。read_problem 已实现（M1-08）。
 
 read_problem → ReadProblemResult{problem_text, confidence}
-  · 真实路径：client_for_role("vision", cfg) → gemini 多模态；模型名取自
+  · 真实路径：client_for_role("vision", cfg) → google.genai 多模态；模型名 per-call 取自
     config.roles.vision（禁硬编码，契约七）。重试上限 = config.orchestration.vision_retry_max。
   · MOCK_VISION=1：读 tests/fixtures/vision_read_problem.jsonl（脱依赖、可独立运行，契约六）。
 check_draft → CheckDraftResult{verdict(四值), error_line?, error_type?, confidence}（M2）
@@ -65,12 +65,13 @@ def _parse_read_problem(text: str) -> ReadProblemResult:
     )
 
 
-async def _generate(client, frame) -> str:
-    """调 gemini 多模态客户端 → 原始文本。client 已由 config.roles.vision 绑定模型名。"""
+async def _generate(client, frame, model: str) -> str:
+    """调 gemini 多模态客户端 → 原始文本。新版 google.genai 为 per-call model（取自
+    config.roles.vision，禁硬编码——契约七），异步走 client.aio.models.generate_content。"""
     parts: list = [_READ_PROBLEM_INSTRUCTION]
     if frame is not None:                     # frame 形态（PIL/blob）由上游抓帧侧给定
         parts.append(frame)
-    resp = await client.generate_content_async(parts)
+    resp = await client.aio.models.generate_content(model=model, contents=parts)
     return resp.text
 
 
@@ -95,15 +96,16 @@ def _parse_observe(text: str) -> ObserveResult:
     )
 
 
-async def _generate_observe(client, frame, hint: Optional[str]) -> str:
-    """调 gemini 多模态客户端 → 原始文本。hint 非空时拼进抽取指令（提示看穿搭/某物体）。"""
+async def _generate_observe(client, frame, hint: Optional[str], model: str) -> str:
+    """调 gemini 多模态客户端 → 原始文本。hint 非空时拼进抽取指令（提示看穿搭/某物体）。
+    新版 google.genai 为 per-call model（取自 config.roles.vision，禁硬编码——契约七）。"""
     instruction = _OBSERVE_INSTRUCTION
     if hint:                                  # hint 仅缩小观察焦点，不引入 E 的措辞/人设
         instruction = f"{instruction}\n关注：{hint}"
     parts: list = [instruction]
     if frame is not None:                     # frame 形态（PIL/blob）由上游抓帧侧给定
         parts.append(frame)
-    resp = await client.generate_content_async(parts)
+    resp = await client.aio.models.generate_content(model=model, contents=parts)
     return resp.text
 
 
@@ -120,12 +122,13 @@ async def read_problem(frame=None, cfg: Optional[dict] = None) -> ReadProblemRes
     if cfg is None:
         cfg = load_config()
     client = client_for_role("vision", cfg)
+    model = cfg["roles"]["vision"]["model"]   # per-call model（禁硬编码——契约七）
 
     retry_max = int(cfg.get("orchestration", {}).get("vision_retry_max", 0))
     last_err: Optional[Exception] = None
     for _ in range(retry_max + 1):            # retry_max 次重试 = retry_max + 1 次尝试
         try:
-            return _parse_read_problem(await _generate(client, frame))
+            return _parse_read_problem(await _generate(client, frame, model))
         except Exception as e:                # 网络/解析失败 → 受 config 重试上限约束重试
             last_err = e
     raise RuntimeError("read_problem 失败（已达 vision_retry_max）") from last_err
@@ -149,12 +152,13 @@ async def observe(hint: Optional[str] = None, cfg: Optional[dict] = None) -> Obs
     if cfg is None:
         cfg = load_config()
     client = client_for_role("vision", cfg)
+    model = cfg["roles"]["vision"]["model"]   # per-call model（禁硬编码——契约七）
 
     retry_max = int(cfg.get("orchestration", {}).get("vision_retry_max", 0))
     last_err: Optional[Exception] = None
     for _ in range(retry_max + 1):            # retry_max 次重试 = retry_max + 1 次尝试
         try:
-            return _parse_observe(await _generate_observe(client, None, hint))
+            return _parse_observe(await _generate_observe(client, None, hint, model))
         except Exception as e:                # 网络/解析失败 → 受 config 重试上限约束重试
             last_err = e
     raise RuntimeError("observe 失败（已达 vision_retry_max）") from last_err
