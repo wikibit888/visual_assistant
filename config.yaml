@@ -1,0 +1,90 @@
+# Visual Assistant v0.1 · 配置基线（契约七）
+# 规则：阈值/模型名/契约值进此处；密钥进 .env；代码中禁硬编码。
+# 数值来源 = PRD（标注 §）；M0 决策项标注 [决策]。
+schema_version: "0.1"
+
+# ── 模型供应商（密钥在 .env，此处仅模型名/参数；三家可切换）──
+providers:
+  deepseek:
+    api_base: "https://api.deepseek.com"
+    api_key_env: DEEPSEEK_API_KEY
+  openai:
+    api_base: "https://api.openai.com/v1"
+    api_key_env: OPENAI_API_KEY
+  gemini:
+    api_base: "https://generativelanguage.googleapis.com"
+    api_key_env: GEMINI_API_KEY
+
+# ── 角色 → 供应商+模型 绑定 ──
+roles:
+  planner:                       # 契约八；PRD §7.2 锁 deepseek-chat
+    provider: deepseek
+    model: deepseek-chat
+    temperature: 0               # §7.2 温度 0
+    structured_output: true      # §7.2 结构化输出（PlannerOutput JSON schema）
+    planner_timeout_ms: 800      # §7.2 软超时 → 维持现场景
+  vision:                        # 契约三；[决策 A1] = gemini（deepseek 无多模态）
+    provider: gemini
+    model: gemini-2.5-flash
+  asr:                           # 契约二；[决策 A2] gemini 生态占位，M1 定具体 STT
+    provider: gemini
+    model: gemini-2.5-flash
+  tts:                           # 契约二；[决策 A2] gemini 生态占位，M1 定具体 TTS
+    provider: gemini
+    model: gemini-2.5-flash-tts
+
+# ── 编排循环 / 确定性护栏（契约八，agent 不可覆盖）──
+orchestration:
+  max_tool_rounds: 2             # §7.2 loop 上限；触顶 FALLBACK_TEXT
+  clarify_max: 1                 # §7.4 每 focus 澄清上限
+  vision_budget_per_problem: 3   # §3.1 识题1 + 批改≤2
+  vision_retry_max: 1            # [决策 A4] PRD 未给值，缺省 1
+  confidence_gate: 0.6           # [决策 A4] 置信门控阈值（vision.confidence 低于此 → 兜底）
+
+# ── rails（M2 硬门兜底；与 agentic 同代码、config 切换）──
+rails:
+  enabled: false                 # §7.2 默认 agentic；干跑 3 次不稳 → 切 true
+  max_tool_rounds_when_railed: 0 # §7.2 rails 时 0
+  forced_tool_sequence:          # §7.2 工具序 + answer 节点混合（M0 可注入 hook）
+    learning:
+      - { step: tool,   name: read_problem }
+      - { step: answer, name: guide }        # guide = 强制 answer 节点，非工具
+      - { step: tool,   name: check_draft }
+    life:
+      - { step: tool,   name: observe }
+      - { step: tool,   name: weather_get }
+    # open 不套 rails（§2）：超出工具序 → 优雅收口分支（§8）
+
+# ── 轮次/IO 状态机 + 间隙仲裁（契约四）──
+turn_state:
+  idle_to_gap_ms: 2000           # §7.7 IDLE ≥2s → gap.open
+  gap_window_ms: 1000            # §7.7 gap 窗口 1s
+  ptt_gap_after_tts_ms: 1000     # §7.7 对讲机间隙 = 松键 + TTS 结束 ≥1s
+  no_gap_force_insert_ms: 20000  # §3.2 持续 20s 无间隙 → 允许句界插入
+  half_duplex_gate: true         # §7.5 AI_SPEAKING 期间半双工 gate 麦克风
+  default_voice_mode: ptt        # §7.5 开场默认对讲机（ptt | free）
+  vad_speaking_min_ms: 300       # §7.5 自由对话 SPEAKING ≥300ms 判打断
+
+# ── 坐姿守护（§3.2.2；100% 端侧，零云调用）──
+posture:
+  hunchback_hold_ms: 30000       # [决策 A3] = 30s ⚠ 偏离 PRD §3.2 的 90–120s，决策人授权（见 CLAUDE.md 传播待办）
+  reminder_cooldown_ms: 60000    # §3.2 同类提醒 60s 冷却
+  release_scope: active_problem  # §3.2.2 放行 = current_mode==learning 或 active_problem!=null
+  thoracic_kyphosis_deg: 30      # 双条件之一：胸椎后凸角度阈（占位，M1 真机标定）
+  head_forward_ratio: 0.15       # 双条件之一：头部前伸/与桌面距离（占位，M1 真机标定）
+
+# ── 天气（weather.get；Open-Meteo 无 key；§4.1）──
+weather:
+  provider: open-meteo
+  api_base: "https://api.open-meteo.com/v1/forecast"
+  cache_ttl_hours: 1             # §7.6 C7 按城市+小时缓存
+  fallback_city: "Shanghai"      # §4.1 定位失败静默回落
+  fallback_lat: 31.2304
+  fallback_lon: 121.4737
+
+# ── 答案护栏（契约九，可选，demo 默认关；§3.1.5）──
+answer_guard:
+  enabled: false                 # demo 默认关
+  scope_modes: [learning]        # 仅 learning 启用
+  sympy_recheck: false           # 可选增强：方程题 sympy 本地二次校验
+  # 触发词表 / 数值组合正则由 E（server/e_skills/）提供
