@@ -118,15 +118,32 @@ export function initVoice(ws, cfg) {
     else flushUtterance();
   }
 
-  // 一个用户回合的音频已成段。M1-06 接：经后端流式 ASR → asr.final（带 confidence、turn_id 由 A 分配）。
-  // 本里程碑不上行音频：后端 /ws 仅 receive_text，二进制帧/专用 envelope 须 M1-06 配套后端改造；
-  // 此处只做 finalize 计数 + 字幕占位，作为 M1-06 的对接缝（保证采集/gate 链路真机可验）。
+  // 一个用户回合的音频已成段 → 经 ws 二进制帧上行（M1-06b）。
+  // 音频 = B 模块前后端「内部传输」、非跨模块通信，故走原始二进制 blob、不裹信封（铁律①）；
+  // 后端收音频 → ASR → 装配成 Envelope(asr.final) 上总线（asr.final 才是跨模块消息，走信封）。
+  // turn_id 由后端装配层（M1 占位 / M2 由 A）分配，前端不臆造（turn_id 分配不属本模块，铁律 §2）。
+  function sendAudioUpstream(data) {
+    // 整段音频原样 send（Blob[对讲机] 或 ArrayBuffer[VAD]）；容器/编码留后端 STT 解码。
+    const size = data == null ? 0 : data.size != null ? data.size : data.byteLength;
+    if (!size) return false;
+    if (ws.readyState !== WebSocket.OPEN) {
+      console.warn("[b_voice] ws 未就绪，丢弃本回合音频上行");
+      return false;
+    }
+    ws.send(data); // 二进制帧；后端 receive() 按 bytes 分流到 ASR
+    return true;
+  }
+
   function flushUtterance() {
     if (recChunks.length) {
-      utteranceCount += 1;
-      const bytes = recChunks.reduce((n, b) => n + b.size, 0);
-      console.debug(`[b_voice] 回合音频成段 #${utteranceCount}（${bytes}B）→ M1-06 上行 ASR`);
-      caption("🎤 已收到你的话（识别中…）"); // asr.final 经后端回来后由 A→字幕更新
+      // 整段拼成单个 blob（保留 recorder 给出的 MIME；不传则浏览器缺省容器）。
+      const mime = (recorder && recorder.mimeType) || "";
+      const blob = mime ? new Blob(recChunks, { type: mime }) : new Blob(recChunks);
+      if (sendAudioUpstream(blob)) {
+        utteranceCount += 1;
+        console.debug(`[b_voice] 回合音频成段 #${utteranceCount}（${blob.size}B）→ 上行 ASR`);
+        caption("🎤 已收到你的话（识别中…）"); // asr.final 经后端回来后由 A→字幕更新
+      }
     }
     recChunks = [];
     micStream && micStream.getAudioTracks().forEach((t) => (t.enabled = false)); // 回到 idle gate 态
@@ -281,16 +298,21 @@ export function initVoice(ws, cfg) {
             renderStatus();
           }, VAD_MIN_MS);
         },
-        onSpeechEnd: () => {
+        onSpeechEnd: (audio) => {
           if (vadSpeechTimer) {
             clearTimeout(vadSpeechTimer); // 未满 VAD_MIN_MS 就结束 → 误触，丢弃
             vadSpeechTimer = null;
             return;
           }
           if (state === State.LISTENING) {
-            utteranceCount += 1; // M1-06 接：onSpeechEnd 的 audio 上行 ASR（同对讲机缝）
-            console.debug(`[b_voice] VAD 回合成段 #${utteranceCount} → M1-06 上行 ASR`);
-            caption("🎤 已收到你的话（识别中…）");
+            // vad-web 给的是 Float32Array 采样（非容器）→ 原样二进制上行（B 内部传输，不裹信封）。
+            // 编码/采样率约定与对讲机 blob 不同，由后端 ASR 适配解码；MOCK_ASR 下忽略内容出固定文本。
+            const buf = audio && audio.buffer ? audio.buffer : audio;
+            if (sendAudioUpstream(buf)) {
+              utteranceCount += 1;
+              console.debug(`[b_voice] VAD 回合成段 #${utteranceCount} → 上行 ASR`);
+              caption("🎤 已收到你的话（识别中…）");
+            }
             state = State.IDLE;
             renderStatus();
           }

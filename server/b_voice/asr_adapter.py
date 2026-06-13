@@ -23,7 +23,9 @@ MOCK_CONFIDENCE = 0.93
 async def transcribe(audio, turn_id: str, cfg: Optional[dict] = None) -> AsrFinal:
     """流式/分段音频 → contracts.AsrFinal（含 confidence + turn_id）。
 
-    MOCK_ASR=1：不触供应商、不读 config，直接出固定文本（契约六，可独立运行）。
+    `audio`：一个用户回合的原始音频字节（M1-06b 由 /ws 二进制帧透传；容器/编码由前端定，
+      真实解码留具体 STT 协议接入时处理）。
+    MOCK_ASR=1：忽略 audio 内容、不触供应商、不读 config，直接出固定文本（契约六，可独立运行）。
     真实路径：按 config.roles.asr 经 client_for_role 解析供应商客户端，再调云 STT。
     """
     if is_mock("MOCK_ASR"):
