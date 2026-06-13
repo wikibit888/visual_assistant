@@ -73,6 +73,11 @@
 | M5-04 | 答案护栏误杀专测（含生活语境数字：温度/年龄/楼层）（原 M4-04） | A/E | 1.5h | 九 | 可 | 误杀专测全过；纯字符串无延迟 |
 | M5-05 | loop/失控专测 + 视觉预算触顶 FALLBACK_TEXT（原 M4-05） | A | 1.5h | 八 | 可 | 触顶不超调、不超 loop 上限 |
 | M5-06 | 开放兜底专测（越界/低置信/双意图诱导）（原 M4-06） | A/E | 1.5h | §5.2 | `MOCK_LLM` | 各边界诚实兜底；防误锁 learning |
+| M5-07 | planner 软超时实测校准（真机 deepseek 延迟 >800ms → 重定 `planner_timeout_ms` 或改超时语义） | A | 1h | 八 | 否（真机） | 实测 deepseek p50/p95；调 config 一处使真 planner 不被频繁误兜底；记录依据 |
+
+> **M5-07 缘由（2026-06-14 真机冒烟）**：`scripts/smoke_real_planner.py` 实测真 deepseek planner 每条均 >800ms，
+> 现 `config.roles.planner.planner_timeout_ms=800`（PRD §7.2）会让真 planner 几乎每回合触发「维持现场景」兜底、形同失效。
+> 需实测延迟后重定阈值（或把软超时改为「流式首 token」语义）；改 config 一处即可，动 PRD §7.2 口径需决策人确认。
 
 ---
 
