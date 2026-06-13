@@ -1,1 +1,2 @@
 {"type": "vision.result", "ts": 1718265604000, "turn_id": "t-000007", "channel": "vision", "payload": {"kind": "observe", "description": "浅色短袖 T 恤，未带外套", "confidence": 0.82}, "schema_version": "0.1"}
+{"type": "vision.result", "ts": 1718265605000, "turn_id": "t-000008", "channel": "vision", "payload": {"kind": "observe", "description": "桌面上一只蓝色保温杯，杯盖未拧紧", "confidence": 0.74}, "schema_version": "0.1"}
