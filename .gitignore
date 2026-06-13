@@ -1,0 +1,32 @@
+# 密钥（契约七：密钥只进 .env，禁提交）
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / web
+node_modules/
+dist/
+
+# 隐私基线（PRD §1.5：音视频不留存）——任何意外落盘的采集物
+*.wav
+*.webm
+*.mp4
+captures/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# CLAUDE
+TASKS.md
+tests/

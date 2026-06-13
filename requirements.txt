@@ -1,0 +1,24 @@
+# Visual Assistant v0.1 · 后端依赖（server/ + contracts/ + tests/）
+# 契约层与测试仅需 pydantic + pyyaml + pytest，可零外部服务独立跑（验 MOCK 自洽）。
+
+# —— 核心（契约/骨架/测试必需）——
+pydantic>=2.6
+pyyaml>=6.0
+python-dotenv>=1.0
+
+# —— 后端运行时（M1 起）——
+fastapi>=0.110
+uvicorn[standard]>=0.29
+websockets>=12.0
+httpx>=0.27          # Open-Meteo / 供应商 REST 调用
+
+# —— 模型供应商 SDK（仅非 MOCK 路径需要）——
+openai>=1.30                 # OpenAI（vision/asr/tts 备选）
+google-generativeai>=0.7     # Gemini（vision + asr/tts 默认占位）
+# deepseek 走 OpenAI 兼容协议，复用 openai SDK + providers.deepseek.api_base
+
+# —— 可选增强 ——
+# sympy>=1.12               # 答案护栏方程题二次校验（answer_guard.sympy_recheck）
+
+# —— 测试 ——
+pytest>=8.0
