@@ -10,16 +10,21 @@ M1-06b 增量 · 音频上行传输层（同一 /ws，按帧形态分流）：
   - 文本帧 = JSON 信封 → 现有逻辑原样不变（Envelope 校验 → ws_router.route → 回送）。
   - 二进制帧 = 一个用户回合的音频（前端 MediaRecorder blob）。音频是 B 模块前后端
     「内部传输」、非跨模块通信，故不裹信封（铁律①）。后端收音频 → 经
-    server.b_voice.asr_adapter.transcribe 得 contracts.AsrFinal → 在此装配层裹成
-    Envelope(type=asr.final, channel=voice) → 投「现有 ws_router.route()」总线。
-    asr.final 才是跨模块消息，必须走信封（契约一 / 契约二 AsrFinal）。M1 阶段 voice
-    channel 仍是占位回环 handler（asr.final 经总线回环上来即验通）；M2 由 A 的 run_turn
-    经 ws_router.register(voice, ...) 接管消费——本入口不碰编排逻辑。
+    server.b_voice.asr_adapter.transcribe 得 contracts.AsrFinal → 交 A 的会话级 Session
+    驱动编排 loop（M2 活体接线）：Session.handle_asr_final 跑 run_turn 并产出
+    Envelope(type=tts.say, channel=voice) 下行（A 只发 tts.say 给 B，铁律②）。
+
+M2 活体接线（本批）：
+  - turn_id 由 A 的 Session 分配（编排核心权属，PRD §7.1）——废弃 M1 装配层 itertools 占位；
+    装配层只问 session.next_turn_id()，不自造回合号。
+  - 二进制音频回合现在产 tts.say（经编排 loop + 确定性护栏），不再回环 asr.final 到前端。
+    asr.final 改由 A 内部消费（run_turn 入参），不再回送——前端如需显示转写须另行单独下发。
+  - 文本帧（JSON 信封）路径原样不变：仍 Envelope 校验 → ws_router.route → 回送（占位回环）。
+    config.push（建连下发）原样不变。本入口仍是纯装配层：编排逻辑全在 A 的 Session/orchestrator。
 """
 
 from __future__ import annotations
 
-import itertools
 import logging
 import time
 
@@ -28,6 +33,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from contracts import Channel, ConfigPushPayload, Envelope, MessageType
 from contracts.config_schema import load_config
 from server import ws_router
+from server.a_core.session import Session
 from server.b_voice import asr_adapter
 
 log = logging.getLogger("va.main")
@@ -52,7 +58,7 @@ def create_app() -> FastAPI:
 
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:
-        """单 WS：文本帧=信封路由；二进制帧=音频上行 → asr.final → 同一总线。"""
+        """单 WS：文本帧=信封路由；二进制帧=音频 → A 编排 loop（Session）→ tts.say 下行。"""
         await ws.accept()
         log.info("ws 连接建立")
         # 建连即下发 config.push（control 通道；建连尚无 turn → 哨兵 t-000000）。
@@ -67,10 +73,9 @@ def create_app() -> FastAPI:
             ).model_dump_json()
         )
 
-        # turn_id 占位计数器（连级递增，格式 t-NNNNNN）。
-        # ⚠ M2 由 A 统一分配 turn_id（编排核心权属，PRD §7.1）——此处仅装配层兜底，
-        #   B 不越权自决回合号；A run_turn 接管后本计数器作废。
-        turn_seq = itertools.count(1)
+        # 会话级编排入口（A 权属，PRD §7.1）：持会话 WorkingMemoryStore + 分配 turn_id。
+        # 一连一实例；turn_id 由 A 的 Session 统一分配，装配层不再自造（M2 活体接线）。
+        session = Session(cfg)
 
         try:
             while True:
@@ -93,22 +98,18 @@ def create_app() -> FastAPI:
 
                 audio = msg.get("bytes")
                 if audio is not None:
-                    # —— 二进制帧 = 音频（B 内部传输，不裹信封）→ ASR → asr.final 上总线 ——
-                    # turn_id：M1 装配层占位递增（M2 由 A 分配，不让 B 越权——见上注）。
-                    turn_id = f"t-{next(turn_seq):06d}"
+                    # —— 二进制帧 = 音频（B 内部传输，不裹信封）→ ASR → A 编排 loop → tts.say ——
+                    # turn_id 由 A 的 Session 分配（编排核心权属，PRD §7.1；装配层不自造）。
+                    turn_id = session.next_turn_id()
                     asr_final = await asr_adapter.transcribe(audio, turn_id, cfg)
-                    # asr.final 是跨模块消息 → 必须裹信封（契约一/契约二），经现有 ws_router.route。
-                    env = Envelope(
-                        type=MessageType.ASR_FINAL,
-                        ts=int(time.time() * 1000),
-                        turn_id=turn_id,
-                        channel=Channel.VOICE,
-                        payload=asr_final.model_dump(),
-                    )
-                    for out in await ws_router.route(env):
+                    # 交 A 的 Session 驱动编排 loop：run_turn → 护栏闸门 → tts.say（铁律2/3）。
+                    # A 内部消费 asr.final（不再回送前端）；下行的是 tts.say 信封。
+                    for out in await session.handle_asr_final(asr_final, cfg):
                         await ws.send_text(out.model_dump_json())
         except WebSocketDisconnect:
             log.info("ws 连接断开")
+            # 会话结束：丢弃工作记忆（仅内存，绝不落盘——隐私基线 PRD §1.5/§7.7）。
+            session.discard()
 
     return app
 

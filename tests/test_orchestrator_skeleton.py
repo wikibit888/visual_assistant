@@ -20,8 +20,8 @@ from contracts.orchestration import (
     ToolCall,
     ToolName,
 )
-from contracts.working_memory import WorkingMemory
 from server.a_core import orchestrator, dispatch, tool_registry
+from server.a_core.working_memory_store import WorkingMemoryStore
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def _cfg(max_tool_rounds: int = 2, rails_enabled: bool = False) -> dict:
 def test_answer_kind_loop_through_to_tts_say(mocks):
     """文本无特征 → planner 脚本走 answer 快路径 → 出 tts.say（贯通）。"""
     out = asyncio.run(
-        orchestrator.run_turn(_asr("你好呀"), WorkingMemory(), cfg=_cfg())
+        orchestrator.run_turn(_asr("你好呀"), WorkingMemoryStore(), cfg=_cfg())
     )
     assert isinstance(out, list) and len(out) == 1
     say = out[0]
@@ -69,7 +69,7 @@ def test_answer_kind_loop_through_to_tts_say(mocks):
 def test_clarify_kind_loop_through_to_tts_say(mocks):
     """文本含「？」→ planner 脚本走 clarify → 出 tts.say（澄清文本）。"""
     out = asyncio.run(
-        orchestrator.run_turn(_asr("这是什么意思？"), WorkingMemory(), cfg=_cfg())
+        orchestrator.run_turn(_asr("这是什么意思？"), WorkingMemoryStore(), cfg=_cfg())
     )
     assert len(out) == 1
     assert out[0].text.strip()
@@ -78,7 +78,7 @@ def test_clarify_kind_loop_through_to_tts_say(mocks):
 def test_tool_calls_kind_under_cap_dispatches_and_says(mocks):
     """含「题」→ tool_calls(read_problem)，1 工具 ≤ max_tool_rounds=2 → 正常贯通到 tts.say。"""
     out = asyncio.run(
-        orchestrator.run_turn(_asr("看看这道题"), WorkingMemory(), cfg=_cfg(max_tool_rounds=2))
+        orchestrator.run_turn(_asr("看看这道题"), WorkingMemoryStore(), cfg=_cfg(max_tool_rounds=2))
     )
     assert len(out) == 1
     say = out[0]
@@ -98,16 +98,17 @@ def test_tool_calls_capped_by_max_tool_rounds(mocks):
     calls = []
     real_dispatch = dispatch.dispatch
 
-    async def _counting_dispatch(tool_call):
+    # run_turn 现以 dispatch(tool_call, store=store) 调用 → 计数包装器须接 store 并透传。
+    async def _counting_dispatch(tool_call, store=None):
         calls.append(tool_call.name)
-        return await real_dispatch(tool_call)
+        return await real_dispatch(tool_call, store=store)
 
     # 在 orchestrator 引用的 dispatch 模块上替换，确保被测循环走计数版本。
     import server.a_core.orchestrator as orch_mod
     orch_mod.dispatch.dispatch = _counting_dispatch
     try:
         out = asyncio.run(
-            orchestrator.run_turn(_asr("用多工具看看"), WorkingMemory(), cfg=_cfg(max_tool_rounds=2))
+            orchestrator.run_turn(_asr("用多工具看看"), WorkingMemoryStore(), cfg=_cfg(max_tool_rounds=2))
         )
     finally:
         orch_mod.dispatch.dispatch = real_dispatch
@@ -123,15 +124,16 @@ def test_cap_zero_dispatches_nothing(mocks):
     calls = []
     real_dispatch = dispatch.dispatch
 
-    async def _counting_dispatch(tool_call):
+    # run_turn 现以 dispatch(tool_call, store=store) 调用 → 计数包装器须接 store 并透传。
+    async def _counting_dispatch(tool_call, store=None):
         calls.append(tool_call.name)
-        return await real_dispatch(tool_call)
+        return await real_dispatch(tool_call, store=store)
 
     import server.a_core.orchestrator as orch_mod
     orch_mod.dispatch.dispatch = _counting_dispatch
     try:
         out = asyncio.run(
-            orchestrator.run_turn(_asr("看看这道题"), WorkingMemory(), cfg=_cfg(max_tool_rounds=0))
+            orchestrator.run_turn(_asr("看看这道题"), WorkingMemoryStore(), cfg=_cfg(max_tool_rounds=0))
         )
     finally:
         orch_mod.dispatch.dispatch = real_dispatch
