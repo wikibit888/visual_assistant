@@ -175,10 +175,10 @@ def test_tool_registry_read_problem_is_real_callable(mocks):
 
 
 def test_tool_registry_mock_stub_for_unimplemented(mocks):
-    """get_tool(observe)：真实实现未落地 + MOCK_VISION=1 → 回落极薄 MOCK 桩（ack 形态）。"""
-    fn = tool_registry.get_tool(ToolName.OBSERVE)
+    """get_tool(check_draft)：真实实现未落地（M3-02）+ MOCK_VISION=1 → 回落极薄 MOCK 桩（ack 形态）。"""
+    fn = tool_registry.get_tool(ToolName.CHECK_DRAFT)
     result = asyncio.run(fn())
-    assert result == {"tool": "observe", "mock": True, "ack": True}
+    assert result == {"tool": "check_draft", "mock": True, "ack": True}
 
 
 def test_tool_registry_rejects_out_of_whitelist():
