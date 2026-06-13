@@ -40,3 +40,6 @@ class MessageType(str, Enum):
 
     # —— 契约四 · 间隙仲裁（A 唯一广播）——
     GAP_OPEN = "gap.open"                # A → all  payload: state_machine.GapOpen
+
+    # —— 控制面 · 建连配置下发（A 唯一下发；control 通道）——
+    CONFIG_PUSH = "config.push"          # A → web  payload: config_push.ConfigPushPayload

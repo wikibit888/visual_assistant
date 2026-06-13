@@ -13,6 +13,7 @@ import pytest
 from contracts import (
     AsrFinal,
     CheckDraftResult,
+    ConfigPushPayload,
     Envelope,
     GapOpen,
     ObserveResult,
@@ -40,6 +41,7 @@ PAYLOAD_MODEL = {
     "weather.result": WeatherResult,
     "posture.alert": PostureAlert,
     "gap.open": GapOpen,
+    "config.push": ConfigPushPayload,
 }
 VISION_BY_KIND = {
     "read_problem": ReadProblemResult,
@@ -55,6 +57,7 @@ ENVELOPE_FILES = [
     "weather.jsonl",
     "posture_alert.jsonl",
     "gap_open.jsonl",
+    "config_push.jsonl",
 ]
 
 

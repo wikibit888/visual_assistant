@@ -34,6 +34,7 @@
 | `weather.result` | weather | `weather.WeatherResult` |
 | `posture.alert` | posture | `state_machine.PostureAlert` |
 | `gap.open` | orchestrator | `state_machine.GapOpen` |
+| `config.push` | control | `config_push.ConfigPushPayload`（A 建连下发 turn_state+posture 子树） |
 
 > 注：PRD §7.7 契约一正文枚举的是**终态**总线消息；`vision.request` / `weather.request`（工具往返的请求侧）是**实现级**信封——工具调用同样只走信封（铁律），不另开内部通道。此为文档↔实现对账闭环，未改任何 PRD 产品决策。
 > 注：`posture.alert.turn_id` 由 A 在接收时关联（D 端侧无回合上下文），详见 `state_machine.py:PostureAlert`。

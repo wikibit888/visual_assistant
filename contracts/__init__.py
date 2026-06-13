@@ -18,6 +18,7 @@ from .vision import (
     ObserveResult,
 )
 from .state_machine import TurnState, PostureAlert, GapOpen
+from .config_push import ConfigPushPayload
 from .errors import Degradation
 from .weather import WeatherGetArgs, WeatherResult
 from .orchestration import (
@@ -57,6 +58,7 @@ __all__ = [
     "TurnState",
     "PostureAlert",
     "GapOpen",
+    "ConfigPushPayload",
     "Degradation",
     "WeatherGetArgs",
     "WeatherResult",
