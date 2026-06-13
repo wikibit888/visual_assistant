@@ -29,3 +29,6 @@ captures/
 
 # CLAUDE
 .claude
+
+# 临时消息队列（worktree session 写任务总结、主管读；临时、不进版本库）
+.msgq/
