@@ -28,8 +28,8 @@ from contracts.orchestration import (
     ToolCall,
     ToolName,
 )
-from contracts.working_memory import WorkingMemory
 from server.a_core import orchestrator, dispatch
+from server.a_core.working_memory_store import WorkingMemoryStore
 
 
 # ── 测试夹具 / 辅助 ───────────────────────────────────────────────────────────
@@ -140,17 +140,18 @@ def test_timeout_maintains_scene_via_run_turn_no_dispatch_one_tts(real_path, mon
     monkeypatch.setattr(orchestrator, "_real_planner_call", _slow)
 
     # 计数 dispatch：超时兜底是 answer，不应触发任何工具分发。
+    # run_turn 现以 dispatch(tool_call, store=store) 调用 → 包装器接 store 并透传（此处不被触达）。
     calls = []
     real_dispatch = dispatch.dispatch
 
-    async def _counting_dispatch(tool_call):
+    async def _counting_dispatch(tool_call, store=None):
         calls.append(tool_call.name)
-        return await real_dispatch(tool_call)
+        return await real_dispatch(tool_call, store=store)
 
     monkeypatch.setattr(orchestrator.dispatch, "dispatch", _counting_dispatch)
 
     out = asyncio.run(
-        orchestrator.run_turn(_asr("你好"), WorkingMemory(), cfg=_planner_cfg(timeout_ms=1))
+        orchestrator.run_turn(_asr("你好"), WorkingMemoryStore(), cfg=_planner_cfg(timeout_ms=1))
     )
     assert calls == []  # 维持现场景，零工具分发
     assert isinstance(out, list) and len(out) == 1
@@ -229,14 +230,14 @@ def test_fast_path_answer_no_tools(real_path, monkeypatch):
     calls = []
     real_dispatch = dispatch.dispatch
 
-    async def _counting_dispatch(tool_call):
+    async def _counting_dispatch(tool_call, store=None):
         calls.append(tool_call.name)
-        return await real_dispatch(tool_call)
+        return await real_dispatch(tool_call, store=store)
 
     monkeypatch.setattr(orchestrator.dispatch, "dispatch", _counting_dispatch)
 
     out = asyncio.run(
-        orchestrator.run_turn(_asr("珠峰多高"), WorkingMemory(), cfg=_planner_cfg())
+        orchestrator.run_turn(_asr("珠峰多高"), WorkingMemoryStore(), cfg=_planner_cfg())
     )
     assert calls == []  # 快路径零工具
     assert len(out) == 1 and isinstance(out[0], TtsSay)
@@ -380,6 +381,6 @@ def test_planner_output_still_passes_guardrail_gate(real_path, monkeypatch):
 
     monkeypatch.setattr(orchestrator, "_real_planner_call", _answer)
 
-    out = asyncio.run(orchestrator.run_turn(_asr("hi"), WorkingMemory(), cfg=_planner_cfg()))
+    out = asyncio.run(orchestrator.run_turn(_asr("hi"), WorkingMemoryStore(), cfg=_planner_cfg()))
     assert seen["text"] == "你好。"  # 候选文本必经护栏闸门（铁律3/5）
     assert isinstance(out[0], TtsSay)

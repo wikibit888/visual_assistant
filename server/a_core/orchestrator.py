@@ -200,21 +200,29 @@ def _guardrail_decide(text: str, memory, cfg: dict) -> str:
     return text
 
 
-async def run_turn(asr_final: AsrFinal, memory, cfg: Optional[dict] = None) -> list[TtsSay]:
+async def run_turn(asr_final: AsrFinal, store, cfg: Optional[dict] = None) -> list[TtsSay]:
     """处理一个用户回合：asr.final → planner → (dispatch≤max_tool_rounds) → 护栏 → tts.say。
 
-    返回经护栏闸门收口的 tts.say 列表（A 只发 tts.say 给 B，铁律2）。本批为骨架空跑：
-    工具结果不深加工（MOCK 桩 ack），仅验证链路贯通与 max_tool_rounds 截顶。
+    返回经护栏闸门收口的 tts.say 列表（A 只发 tts.say 给 B，铁律2）。本批为活体接线：
+    工具经会话级 store 分发（memory_* 可用），仍验证链路贯通与 max_tool_rounds 截顶。
 
+    store：会话级 WorkingMemoryStore（A 权属，PRD §7.1）——持结构化 store.memory（供 planner
+      读 prior mode、写回 current_mode）+ 通用 KV（memory_* 工具）。经 dispatch(..., store=...)
+      透传给 get_tool，让 memory_note/recall 绑定本会话。
     cfg：可注入（测试用）；缺省 load_config()。max_tool_rounds 读 config（禁硬编码，契约七）。
     """
     if cfg is None:
         cfg = load_config()
     max_tool_rounds = int(cfg.get("orchestration", {}).get("max_tool_rounds", 0))
 
-    planner_input = _build_planner_input(asr_final, memory)
+    # 读 prior mode（sticky）须在 mode 写回之前：_build_planner_input 取 store.memory.current_mode。
+    planner_input = _build_planner_input(asr_final, store.memory)
     # 传 cfg：真 planner 分支据 cfg 读温度/软超时（禁硬编码，契约七）；MOCK 分支短路不用 cfg。
     plan = await call_planner(planner_input, cfg)
+
+    # mode 写回（契约八 sticky）：planner 裁定本回合 mode → 写入工作记忆，供下一回合 sticky。
+    # 在读取 prior mode（上方 _build_planner_input）之后写，不污染本回合 planner 输入。
+    store.memory.current_mode = plan.mode
 
     capped = False
     if plan.kind == PlannerKind.TOOL_CALLS:
@@ -226,7 +234,8 @@ async def run_turn(asr_final: AsrFinal, memory, cfg: Optional[dict] = None) -> l
                 # 触顶停（PRD §7.2）：剩余工具不再执行，候选回复走 FALLBACK_TEXT。
                 capped = True
                 break
-            await dispatch.dispatch(tool_call)
+            # 透传 store：memory_* 工具绑定会话级 store（get_tool 按 name 注入），无状态工具忽略。
+            await dispatch.dispatch(tool_call, store=store)
             rounds += 1
         candidate = FALLBACK_TEXT if capped else (plan.text or FALLBACK_TEXT)
     elif plan.kind == PlannerKind.CLARIFY:
@@ -235,5 +244,5 @@ async def run_turn(asr_final: AsrFinal, memory, cfg: Optional[dict] = None) -> l
         candidate = plan.text or FALLBACK_TEXT
 
     # 护栏闸门（铁律3/5）→ tts.say（铁律2：A 只发 tts.say 给 B）。
-    decided = _guardrail_decide(candidate, memory, cfg)
+    decided = _guardrail_decide(candidate, store.memory, cfg)
     return [TtsSay(text=decided, turn_id=asr_final.turn_id, seq=0)]
