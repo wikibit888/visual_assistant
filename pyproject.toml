@@ -1,5 +1,5 @@
 # Visual Assistant v0.1 · 后端工程依赖（uv 管理）
-# 依赖镜像自 requirements.txt（保持同源）；密钥在 .env、阈值/模型名在 config.yaml（契约七）。
+# 本文件 = 唯一依赖真相源（契约七）；密钥在 .env、阈值/模型名在 config.yaml。
 # 这是「应用」而非「库」：package = false，uv 只管 venv + 依赖，不构建/安装本仓自身。
 [project]
 name = "visual-assistant"

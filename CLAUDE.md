@@ -19,7 +19,7 @@
 | 层 | 选型 | 说明 |
 |---|---|---|
 | 前端 | Chrome 页面 · 原生 ES modules（不打包、不用 Electron） | getUserMedia + 内建 AEC + MediaPipe JS（姿态）+ vad-web（VAD） |
-| 后端 | Python ≥3.9（建议 3.11）· FastAPI · **单 WebSocket** | 信封收发；`uvicorn` 起服务 |
+| 后端 | Python ≥3.11 · FastAPI · **单 WebSocket** | 信封收发；`uvicorn` 起服务 |
 | 数据契约 | Pydantic v2 | `contracts/` 全量模型 |
 | 配置 | `config.yaml`（阈值/模型名/契约值）+ `.env`（密钥） | 见 §4 权属规则 |
 | 模型供应商 | **deepseek / openai / gemini 三家**（`server/llm/providers.py` 抽象） | 角色→供应商绑定在 `config.roles` |
@@ -102,9 +102,9 @@
 ## 7. 运行 / 测试
 
 ```bash
-python3 -m pip install -r requirements.txt
-pytest -q                       # 契约层 + fixture 自检（零外部依赖，应全绿）
-# M1 起：uvicorn server.main:app --reload    （单 WS 端点 /ws）
+uv sync                         # 装依赖（pyproject + uv.lock，唯一真相源；首次自动建 .venv）
+uv run pytest -q                # 契约层 + fixture 自检（零外部依赖，应全绿）
+# M1 起：uv run uvicorn server.main:app --reload    （单 WS 端点 /ws）
 # 前端：用任意静态服务器托管 web/（Chrome 打开），需 https 或 localhost 才能拿摄像头/麦克风
 ```
 
