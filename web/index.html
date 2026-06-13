@@ -2,7 +2,7 @@
 <html lang="zh-CN">
   <!-- Visual Assistant v0.1 · 前端进程（Chrome 页面，不用 Electron；PRD §7.1）。
        getUserMedia + 内建 AEC + MediaPipe JS（D 姿态）+ vad-web（B 语音）。
-       M0 仅骨架占位，无业务逻辑。 -->
+       M1-01：放好 DOM 占位 + 稳定 id（地基定稿），业务由 b_voice/d_posture（批1）填。 -->
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,7 +10,22 @@
   </head>
   <body>
     <main id="app">
-      <!-- M1+：摄像头预览 / 对讲机按键 / 字幕兜底 -->
+      <!-- ── 稳定 id 契约（供 b_voice / d_posture querySelector；批1 按此对接）──
+           #camera     摄像头预览 <video>：D 姿态（MediaPipe Pose）+ C 抓帧共用
+           #ptt-btn    对讲机 PTT 按钮：B 语音（按住说话/打断）
+           #subtitles  字幕兜底区：B 显示 asr/tts 文本（TTS 失败回退字幕，§8）
+           #status     连接状态：main.js 写 connected/disconnected/error -->
+
+      <section id="camera-pane">
+        <video id="camera" autoplay muted playsinline></video>
+      </section>
+
+      <section id="controls">
+        <button id="ptt-btn" type="button">按住说话</button>
+        <span id="status">connecting…</span>
+      </section>
+
+      <section id="subtitles" aria-live="polite"></section>
     </main>
     <script type="module" src="./src/main.js"></script>
   </body>
