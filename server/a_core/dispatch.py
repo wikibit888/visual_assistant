@@ -48,11 +48,13 @@ def resolve_sequence(planner_tools, mode, cfg):
     ]
 
 
-async def dispatch(tool_call):
+async def dispatch(tool_call, store=None):
     """执行单个工具（经 tool_registry → 真实 / MOCK 实现），await 返回其结果。
 
     tool_call：contracts.ToolCall{name, args}。tool_registry.get_tool 据 name 取协程实现，
     以 args 关键字展开调用。MOCK_X=1 时取 MOCK 实现（脱依赖，契约六）。
+    store：会话级 WorkingMemoryStore，透传给 get_tool——仅 memory_* 用其绑定 bound 协程方法，
+      无状态工具忽略。编排循环按会话注入；不传则无会话上下文（memory_* 将清晰报错）。
     """
-    fn = tool_registry.get_tool(tool_call.name)
+    fn = tool_registry.get_tool(tool_call.name, store=store)
     return await fn(**(tool_call.args or {}))
