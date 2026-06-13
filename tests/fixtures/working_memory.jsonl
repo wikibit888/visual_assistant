@@ -1,0 +1,1 @@
+{"current_mode": "learning", "active_problem": {"problem_text": "解方程 2x + 3 = 11", "confidence": 0.88}, "solved_answer": "x=4", "current_focus": "第三题", "mistake_log": [{"error_line": 2, "error_type": "transpose_error", "ts": 1718265603000}], "reminder_count": 1, "clarify_count": 1}

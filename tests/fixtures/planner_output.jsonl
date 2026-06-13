@@ -1,0 +1,4 @@
+{"kind": "answer", "mode": "open", "tools": [], "text": "珠穆朗玛峰大约 8848 米。"}
+{"kind": "tool_calls", "mode": "learning", "tools": [{"name": "read_problem", "args": {}}], "text": "我看看你指的这道题。"}
+{"kind": "clarify", "mode": "learning", "tools": [], "text": "你指的是第三题对吗？"}
+{"kind": "tool_calls", "mode": "life", "tools": [{"name": "observe", "args": {"hint": "outfit"}}, {"name": "weather_get", "args": {"lat": 31.2304, "lon": 121.4737}}], "text": "我看下你的穿着，再查下天气。"}

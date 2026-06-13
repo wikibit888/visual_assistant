@@ -1,0 +1,4 @@
+{"type": "asr.final", "ts": 1718265600000, "turn_id": "t-000001", "channel": "voice", "payload": {"text": "这道题我不会，你看看", "confidence": 0.93, "turn_id": "t-000001"}, "schema_version": "0.1"}
+{"type": "tts.say", "ts": 1718265600800, "turn_id": "t-000001", "channel": "voice", "payload": {"text": "你指的是第三题对吗？", "turn_id": "t-000001", "seq": 0}, "schema_version": "0.1"}
+{"type": "tts.stop", "ts": 1718265601200, "turn_id": "t-000001", "channel": "voice", "payload": {"turn_id": "t-000001"}, "schema_version": "0.1"}
+{"type": "tts.ack", "ts": 1718265601250, "turn_id": "t-000001", "channel": "voice", "payload": {"turn_id": "t-000001", "stopped": true}, "schema_version": "0.1"}

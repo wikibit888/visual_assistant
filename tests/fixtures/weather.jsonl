@@ -1,0 +1,2 @@
+{"type": "weather.request", "ts": 1718265605000, "turn_id": "t-000008", "channel": "weather", "payload": {"lat": 31.2304, "lon": 121.4737}, "schema_version": "0.1"}
+{"type": "weather.result", "ts": 1718265605300, "turn_id": "t-000008", "channel": "weather", "payload": {"summary": "light_rain", "temp": 18.5, "precip": 0.6, "wind": 12.0, "source": "open-meteo"}, "schema_version": "0.1"}

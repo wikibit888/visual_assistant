@@ -1,0 +1,16 @@
+# .worktreeinclude — claude --worktree 复制清单（.gitignore 语法）
+# 作用：把「既匹配下方 pattern、又被 .gitignore 忽略」的本地文件，复制进新建的 git worktree。
+# 背景：git worktree 默认只带「已跟踪」文件；密钥等被 gitignore 的本地文件不会自动进去。
+#       config.yaml / .env.example 是已跟踪文件，worktree 自动带，无需也不要列在这里。
+#
+# 危险红线：worktree 本身创建在 .claude/worktrees/ 下，.claude/ 整体被 gitignore。
+#           因此严禁出现 `.claude/`、`.claude`、`.claude/**` —— 会把已有 worktree 递归卷进新 worktree。
+#           要带 .claude 下的东西，只能精确到具体文件（见下方 settings.local.json）。
+
+# 密钥文件：M1 真机联调（ASR/TTS/视觉三供应商）需要 API key；被 gitignore 不会自动进 worktree。
+# 当前仓库尚无 .env，此行为前瞻性占位——无匹配则不复制任何东西，待 .env 创建后即生效。
+.env
+
+# CC 权限/本地设置：精确到单文件（绝不写 .claude/ 目录），让 worktree 里的 CC 实例继承授权、
+# 减少重复授权提示。当前尚无此文件，前瞻性占位——存在时才复制，且不触及 .claude/worktrees/。
+.claude/settings.local.json

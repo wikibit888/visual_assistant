@@ -28,5 +28,4 @@ captures/
 .idea/
 
 # CLAUDE
-TASKS.md
-tests/
+.claude
