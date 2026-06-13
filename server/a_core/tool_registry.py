@@ -9,7 +9,7 @@
 本批（M1-02）只做「loop+dispatch 空跑」：
 - get_tool 仅认 contracts.TOOL_REGISTRY 收录的工具名（白名单单一真理来源）。
 - read_problem 直接绑定 C 已落地的真实实现（其内部按 MOCK_VISION 脱依赖）。
-- 其余工具真实实现尚未落地（check_draft=M2 / observe=M3 / weather=后续 / memory=M2）。
+- 其余工具真实实现尚未落地（observe=M2 / check_draft=M3 / weather=M4 / memory=M2；里程碑号按「基座→收窄」重排）。
   为让编排骨架可端到端空跑，**仅当该工具声明了 mock_env 且对应 MOCK_X=1 时**，
   回落到一个极薄的 MOCK 协程（返回 ack 形态 dict）。非 MOCK 路径仍按真实实现，
   真实实现未就位则显式 NotImplementedError——不静默假成功（不污染后续真接线）。
