@@ -9,16 +9,16 @@
 
 | ID | 任务 | 负责模块 | 工时 | 依赖契约 | MOCK 并行 | 验收标准 |
 |---|---|---|---|---|---|---|
-| M1-01 | FastAPI 单 WS 装配 + 信封路由 | A/基础 | 2h | 一 | 可（全 MOCK） | web↔server 信封双向贯通；按 `channel` 分发 |
-| M1-02 | 编排器骨架：loop+dispatch 空跑 | A | 2h | 八/十 | `MOCK_PLANNER`+`MOCK_VISION` | asr.final→planner(脚本)→tts.say 空循环贯通，受 max_tool_rounds 约束 |
-| M1-03 | 确定性护栏骨架（置信门控/loop/澄清/视觉预算/粘滞） | A | 2h | 三/八 | 可 | 各护栏触发有单测；护栏在循环外、不可被覆盖 |
-| M1-04 | 状态机 + 间隙仲裁（gap.open 广播 + 姿态放行门控） | A | 2h | 四 | 可 | IDLE≥2s 开窗 1s（读 config）；放行门控 `learning∨active_problem` 单测 |
-| M1-05 | 前端 VAD/PTT/播放队列/**半双工 gate**（真机） | B | 2h | 二/四 | 否（真机） | 对讲机按键说/打断；AI_SPEAKING 暂停采音、无自激 |
-| M1-06 | 后端流式 ASR → asr.final | B | 2h | 二 | `MOCK_ASR` | 真机出 asr.final（带 confidence）；MOCK 出固定文本 |
-| M1-07 | 后端按句 TTS（首句先播）+ stop 语义 | B | 2h | 二 | `MOCK_TTS` | 按句播；stop=立即停+清队列+回 tts.ack |
-| M1-08 | C 视觉 read_problem（gemini 多模态 / MOCK 读 fixture） | C | 2h | 三 | `MOCK_VISION` | 返回合规 ReadProblemResult；MOCK 读 fixtures |
-| M1-09 | D 姿态双条件检测 → posture.alert（端侧） | D | 2h | 四/§3.2.2 | 端侧独立（零云） | 双条件持续 `hunchback_hold_ms` 才发；低头写字不误触；只发 alert 不出声 |
-| M1-10 | E planner system prompt + 引导话术（结构化约束） | E | 2h | 八 | `MOCK_LLM` | planner 输出符合 PlannerOutput schema；工具白名单生效；E 不内嵌路由 |
+| M1-01 | FastAPI 单 WS 装配 + 信封路由 | A/基础 | ✅ | 一 | 可（全 MOCK） | web↔server 信封双向贯通；按 `channel` 分发 |
+| M1-02 | 编排器骨架：loop+dispatch 空跑 | A | ✅ | 八/十 | `MOCK_PLANNER`+`MOCK_VISION` | asr.final→planner(脚本)→tts.say 空循环贯通，受 max_tool_rounds 约束 |
+| M1-03 | 确定性护栏骨架（置信门控/loop/澄清/视觉预算/粘滞） | A | ✅ | 三/八 | 可 | 各护栏触发有单测；护栏在循环外、不可被覆盖 |
+| M1-04 | 状态机 + 间隙仲裁（gap.open 广播 + 姿态放行门控） | A | ✅ | 四 | 可 | IDLE≥2s 开窗 1s（读 config）；放行门控 `learning∨active_problem` 单测 |
+| M1-05 | 前端 VAD/PTT/播放队列/**半双工 gate**（真机） | B | ✅ | 二/四 | 否（真机） | 对讲机按键说/打断；AI_SPEAKING 暂停采音、无自激 |
+| M1-06 | 后端流式 ASR → asr.final | B | ✅ | 二 | `MOCK_ASR` | 真机出 asr.final（带 confidence）；MOCK 出固定文本 |
+| M1-07 | 后端按句 TTS（首句先播）+ stop 语义 | B | ✅ | 二 | `MOCK_TTS` | 按句播；stop=立即停+清队列+回 tts.ack |
+| M1-08 | C 视觉 read_problem（gemini 多模态 / MOCK 读 fixture） | C | ✅ | 三 | `MOCK_VISION` | 返回合规 ReadProblemResult；MOCK 读 fixtures |
+| M1-09 | D 姿态双条件检测 → posture.alert（端侧） | D | ✅ | 四/§3.2.2 | 端侧独立（零云） | 双条件持续 `hunchback_hold_ms` 才发；低头写字不误触；只发 alert 不出声 |
+| M1-10 | E planner system prompt + 引导话术（结构化约束） | E | ✅ | 八 | `MOCK_LLM` | planner 输出符合 PlannerOutput schema；工具白名单生效；E 不内嵌路由 |
 
 ---
 
@@ -26,11 +26,11 @@
 
 | ID | 任务 | 负责模块 | 工时 | 依赖契约 | MOCK 并行 | 验收标准 |
 |---|---|---|---|---|---|---|
-| M2-01 | 编排循环接真 planner（deepseek 温度0+结构化）+ 快路径（原 M2-01） | A | 2h | 八 | `MOCK_VISION` 仍可 | 文本回合零工具快路径；超时 800ms 维持现场景 |
+| M2-01 | 编排循环接真 planner（deepseek 温度0+结构化）+ 快路径（原 M2-01） | A | ✅ | 八 | `MOCK_VISION` 仍可 | 文本回合零工具快路径；超时 800ms 维持现场景 |
 | M2-02 | 开放对话（全交 LLM + 诚实兜底 + 优雅收口）（原 M3-04） | A/E | 2h | §5.4 | `MOCK_LLM` | 看不清/帮不上即明说；不落死分支；越界→「帮不上」 |
-| M2-03 | 工作记忆运行时 + memory_note/recall（原 M2-05） | A | 1.5h | 十 | 进程内 | WM 读写正确；会话结束丢弃、绝不落盘 |
-| M2-04 | C observe 实现（穿搭/物体）+ observe fixture（原 M3-01；**基座多模态，生活被砍仍保留**） | C | 2h | 三 | `MOCK_VISION` | 返回合规 ObserveResult；fixture 入库 |
-| M2-05 | E 开放对话 prompt + 口头小结 prompt（原 M3-06 开放/小结部分） | E | 1.5h | 八 | `MOCK_LLM` | 期望管理话术坦诚；小结含做了几道+坐姿提醒几次 |
+| M2-03 | 工作记忆运行时 + memory_note/recall（原 M2-05） | A | ✅ | 十 | 进程内 | WM 读写正确；会话结束丢弃、绝不落盘 |
+| M2-04 | C observe 实现（穿搭/物体）+ observe fixture（原 M3-01；**基座多模态，生活被砍仍保留**） | C | ✅ | 三 | `MOCK_VISION` | 返回合规 ObserveResult；fixture 入库 |
+| M2-05 | E 开放对话 prompt + 口头小结 prompt（原 M3-06 开放/小结部分） | E | ✅ | 八 | `MOCK_LLM` | 期望管理话术坦诚；小结含做了几道+坐姿提醒几次 |
 | M2-06 | 工具序一致性初测（原 M2-08 初测部分） | E | 0.5h | 八 | `MOCK_LLM` | 同动线工具调用序列一致（非逐字一致） |
 
 > 硬门：开放对话基座跑通——接任意请求、不编造、不落死分支、loop 稳。**agentic 硬门**：基座循环 3 次干跑不稳→准备切 rails。
