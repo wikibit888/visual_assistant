@@ -46,7 +46,7 @@
 
 | ID | 任务 | 负责模块 | 工时 | 依赖契约 | MOCK 并行 | 验收标准 |
 |---|---|---|---|---|---|---|
-| M3-01 | 拍 gemini 生态 STT/TTS 型号 + `providers.py` 迁 `google.genai`（弃 deprecated `google-generativeai`） | B/llm | 1.5h | 七 | — | `config.roles.asr/tts` 落型号；`client_for_role("asr"/"tts")` 真客户端可建；现有 vision 真路径不回归 |
+| M3-01 | 拍 gemini 生态 STT/TTS 型号 + `providers.py` 迁 `google.genai`（弃 deprecated `google-generativeai`） | B/llm | ✅ | 七 | — | `config.roles.asr/tts` 落型号；`client_for_role("asr"/"tts")` 真客户端可建；现有 vision 真路径不回归（真路径联网回归移交 M3-06） |
 | M3-02 | 真实云 ASR 适配器（`asr_adapter` 真路径：流式音频→`asr.final` 带 confidence）（接 M1-06 欠债） | B | 2h | 二 | `MOCK_ASR` 仍可 | 真机出中文真转写；空/噪声不崩；MOCK 路径不破 |
 | M3-03 | 真实云 TTS 适配器（`tts_adapter` 真路径：按句流式→`TtsFrame` + stop 语义）（接 M1-07 欠债） | B | 2h | 二 | `MOCK_TTS` 仍可 | 真机出真人声；首句先播；stop=立停+清队列+ack；MOCK 不破 |
 | M3-04 | 前端↔后端真机语音闭环联调（mic→WS→ASR→planner→TTS→播放；半双工 gate/打断/自激） | B/A | 2h | 二/四 | 否（真机） | 对讲机说→AI 答全程真机；AI_SPEAKING 半双工无自激；打断按键演；§7.5 止损可踩 |
