@@ -131,7 +131,8 @@ async def _real_planner_call(planner_input: dict, cfg: dict) -> PlannerOutput:
 
     抽成模块级独立协程，便于测试 monkeypatch 替换（离线断言超时/解析/快路径，零真实网络）。
     - 客户端经 client_for_role("planner", cfg) 取（模型名/base/key 全走 config+.env，零硬编码）。
-    - system = E 的 prompts.PLANNER_SYSTEM（措辞归 E，A 只引用）；user = 本回合识别文本。
+    - system = E 的 prompts.planner_system_with_open_style()（planner system + 开放对话答复风格，
+      措辞/组合均归 E，A 只调用不拼装——铁律：提示词权属归 E）；user = 本回合识别文本。
     - 温度取 cfg.roles.planner.temperature；structured_output 为真则请求 JSON object（契约七）。
     - 同步 OpenAI SDK 阻塞调用必须用 asyncio.to_thread 包起，不在事件循环里阻塞。
     """
@@ -145,7 +146,7 @@ async def _real_planner_call(planner_input: dict, cfg: dict) -> PlannerOutput:
     create_kwargs: dict = {
         "model": client.model if hasattr(client, "model") else planner_cfg.get("model"),
         "messages": [
-            {"role": "system", "content": prompts.PLANNER_SYSTEM},
+            {"role": "system", "content": prompts.planner_system_with_open_style()},
             {"role": "user", "content": user_text},
         ],
     }
