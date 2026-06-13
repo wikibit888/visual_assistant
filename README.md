@@ -8,8 +8,8 @@
 ## 快速开始
 
 ```bash
-python3 -m pip install -r requirements.txt
-pytest -q                 # 契约层 + fixture 自检（零外部依赖，应全绿）
+uv sync                   # 装依赖（pyproject + uv.lock，唯一真相源；首次自动建 .venv）
+uv run pytest -q          # 契约层 + fixture 自检（零外部依赖，应全绿）
 cp .env.example .env      # 填供应商密钥；或全程置 MOCK_X=1 脱依赖跑
 ```
 
