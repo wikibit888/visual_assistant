@@ -32,6 +32,8 @@ session:
   frame_timeout_ms: 4000           # [决策] 单帧往返超时：客户端漏回 frame.response 时不让模型泵死锁（PRD §5 抓帧确定性绿层）
   live_ping_interval_ms: 20000     # [方案A] Live ws keepalive ping 间隔（0=禁 ping，靠数据流/TCP 探活）
   live_ping_timeout_ms: 60000      # [方案A] 等 pong 容忍上限：默认 20s→60s，扛 China→Google 实时流抖动（PRD §5）
+  live_connect_retry_max: 2        # [方案C] Live 连接 __aenter__ 瞬时失败（ConnectionReset/握手抖动）重试次数；非瞬时错误不重试
+  live_connect_retry_backoff_ms: 400  # [方案C] 连接重试退避（China→Google 弱链路一抖即过，多重试一两次即连上）
 
 # ── 语音轮次 / 客户端闸门（确定性·蓝层；前端阈值经 config.push 下发，前端不自带魔数）──
 voice:
@@ -42,11 +44,11 @@ voice:
 
 # ── 坐姿守护（PRD §3.2 / §3.2.2；100% 端侧，零云调用）──
 posture:
-  hunchback_hold_ms: 30000         # [决策] = 30s（PRD §3.2/§11 已对齐 30s）；回归更长只改此处
+  hunchback_hold_ms: 3000         # [决策] = 30s（PRD §3.2/§11 已对齐 30s）；回归更长只改此处
   reminder_cooldown_ms: 60000      # §3.2 同类提醒 60s 冷却
   release_scope: active_problem    # §3.2.2 放行 = mode==learning 或 active_problem!=null（客户端裁）
-  thoracic_kyphosis_deg: 30        # 双条件之一：胸椎后凸角阈（占位，真机标定）
-  head_forward_ratio: 0.15         # 双条件之一：头部前伸/与桌面距离（占位，真机标定）
+  thoracic_kyphosis_deg: 30        # 双条件之一：胸椎后凸角阈（占位·真机标定·改此一处生效，前端 posture 从 config.push 读）
+  head_forward_ratio: 0.15         # 双条件之一：头部前伸/与桌面距离（占位·真机标定·改此一处生效，前端 posture 从 config.push 读）
   gap_min_silence_ms: 1500         # §4.2 客户端 gap 闸门：静默≥此值才算缝隙，才注入坐姿 alert
 
 # ── 天气（weather_get；Open-Meteo 无 key；PRD §3 / §5）──

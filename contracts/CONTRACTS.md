@@ -38,7 +38,7 @@
 | `tool.activity` | S→C | transcript | `transcript.ToolActivity` |
 | `frame.request` | S→C | frame | `frame.FrameRequest` |
 | `frame.response` | C→S | frame | `frame.FrameResponse` |
-| `posture.alert` | C→S | posture | `posture.PostureAlert` |
+| `posture.alert` | C→S | posture | `posture.PostureAlert`（`{severity, ts, reminder_count?}`；`reminder_count` 透传，计数真源在客户端 client_state，后端缝「第 N 次」） |
 | `config.push` | S→C | control | `config_push.ConfigPushPayload`（建连即发） |
 | `text.input` | C→S | control | `control.TextInput` |
 | `error` | S→C | control | `control.ErrorEvent` |

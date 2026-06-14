@@ -44,14 +44,18 @@
 
 ## M3 · 学习收窄（P0 demo 锚）
 
+> **M3-01~05 已实现**（分支 `feat/m3-batch1`；`uv run pytest -q` → 40 绿、前端 `node --check` OK）。
+> ✅ = 代码完成；其**真机验收**（绝不报答案 / 逆光→unreadable / 30s 不误报 / 「第N次」/ turn_complete 择时）
+> 统一并入 **M3-06 真机+导演触发联调**（PRD §5 视觉/语音链路无 mock 退路）。
+
 | ID | 任务 | 轨 / 模块 | MOCK 并行 | 验收标准 |
 |---|---|---|---|---|
-| M3-01 | `check_draft` 真帧批改：三值 `verdict` + `error_line` + `error_type`（只定位错误行，不报答案） | 后端 · tools | MOCK_VISION | 三值各样例对；found_error 必带 error_line |
-| M3-02 | D 端侧 MediaPipe 双条件检测（颈/背夹角 + 头前伸）+ 持续 `hunchback_hold_ms`(30s) | 前端 · posture | — | 双条件持续才触发；低头写字不误触；只发 alert 不出声 |
-| M3-03 | 客户端坐姿放行门控（`mode==learning` 或 `active_problem!=null`）+ gap 闸门（静默≥阈）+ `reminder_count++` | 前端 · posture/client_state | — | mode 抖动不吞 alert；非缝隙不注入；次数累计 |
-| M3-04 | 后端：`posture.alert` 作为 text 事件注入 Live 会话（proactive 择时 + 措辞：缝进进度/次数，最多等一句） | 后端 · relay | — | 提醒缝进「第二步/第 3 次」；不打断关键思路 |
-| M3-05 | skills 学习 profile 调参：分步引导阶梯（方向/操作/示范）+ 批改口径 + 坐姿措辞 | 并行 · skills | MOCK_LIVE | 引导得当；绝不顺嘴报答案 |
-| M3-06 | 学习动线真机 + 坐姿导演触发联调（识题→帮解→批改→缝隙提醒） | 全 · 真机 | 否 | 主路径连贯；坐姿提醒不被 mode 抖动吞；30s 下低头写字不误报 |
+| ✅ M3-01 | `check_draft` 真帧批改：三值 `verdict` + `error_line` + `error_type`（只定位错误行，不报答案）。**结构化输出硬约束**（schema 无答案字段）+ server 侧红线校验 | 后端 · tools | MOCK_VISION | 三值各样例对；found_error 必带 error_line |
+| ✅ M3-02 | D 端侧 MediaPipe 双条件检测（颈/背夹角 + 头前伸）+ 持续 `hunchback_hold_ms`(30s)。CDN 动态 import；阈值占位待真机标定 | 前端 · posture | — | 双条件持续才触发；低头写字不误触；只发 alert 不出声 |
+| ✅ M3-03 | 客户端坐姿放行门控（`mode==learning` 或 `active_problem!=null`）+ gap 闸门（静默≥阈）+ `reminder_count++`（**修时序：先计数再发**） | 前端 · posture/client_state | — | mode 抖动不吞 alert；非缝隙不注入；次数累计 |
+| ✅ M3-04 | 后端：`posture.alert` 作为 text 事件注入 Live 会话。**契约加 `reminder_count` 透传**，「第N次」打通；`turn_complete=True`（gap 闸门已保非抢话；proactive 待 M3-06 核验） | 后端 · relay | — | 提醒缝进「第二步/第 3 次」；不打断关键思路 |
+| ✅ M3-05 | skills 学习 profile 调参：分步引导阶梯（方向/操作/示范）+ 批改口径（三值+低置信）+ 坐姿措辞（最多等一句） | 并行 · skills | MOCK_LIVE | 引导得当；绝不顺嘴报答案 |
+| ⏳ M3-06 | 学习动线真机 + 坐姿导演触发联调（识题→帮解→批改→缝隙提醒） | 全 · 真机 | 否 | 主路径连贯；坐姿提醒不被 mode 抖动吞；30s 下低头写字不误报 |
 
 ---
 

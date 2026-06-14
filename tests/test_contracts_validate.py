@@ -130,3 +130,14 @@ def test_found_error_requires_error_line():
         CheckDraftResult.model_validate(
             {"kind": "check_draft", "verdict": "found_error", "confidence": 0.9}
         )
+
+
+def test_posture_alert_reminder_count_optional():
+    """契约七：reminder_count 可选（向后兼容）——缺省=None（后端落「又一次」），带时须 int ge=1。"""
+    assert PostureAlert.model_validate({"severity": "hunchback", "ts": 1}).reminder_count is None
+    assert (
+        PostureAlert.model_validate({"severity": "hunchback", "ts": 1, "reminder_count": 3}).reminder_count
+        == 3
+    )
+    with pytest.raises(Exception):  # ge=1：0 / 负数非法
+        PostureAlert.model_validate({"severity": "hunchback", "ts": 1, "reminder_count": 0})
