@@ -1,1 +1,2 @@
 {"type": "posture.alert", "ts": 1718200050000, "channel": "posture", "schema_version": "0.1", "payload": {"severity": "hunchback", "ts": 1718200050000}}
+{"type": "posture.alert", "ts": 1718200055000, "channel": "posture", "schema_version": "0.1", "payload": {"severity": "hunchback", "ts": 1718200055000, "reminder_count": 2}}

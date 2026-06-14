@@ -319,12 +319,15 @@ export class Posture {
     // ③ gap 闸门：会话静默 ≥ gap_min_silence_ms 才注入（PRD §4.2 缝隙择时）。
     if (!this.state.isInGap(now)) return;
 
+    // 先记次数再发（时序铁律）：reminder_count 是客户端确定性真源，必须在发出**之前** ++ 并读出
+    // 带进 payload；否则首条发出时 count 仍是旧值（陈旧 0），后端「第 N 次」从第一条就错位。
+    this.state.noteReminderSent(now); // reminder_count++ + 记冷却起点（次数在客户端，措辞在模型）
     // 过三闸 → 发 D 的唯一出口 posture.alert（单级、不带话术；contracts/posture.py）。
     this._send(MessageType.POSTURE_ALERT, Channel.POSTURE, {
       severity: "hunchback", // v0.1 单级（contracts/posture.py）
       ts: now,
+      reminder_count: this.state.reminderCount, // 本会话累计第几次（后端透传缝进「第 N 次」措辞）
     });
-    this.state.noteReminderSent(now); // reminder_count++ + 记冷却起点（次数在客户端，措辞在模型）
     this._setIndicator("alert");
     // 发出后复位持续计时：避免同一驼背周期内每个 tick 重发（冷却已兜，但提前复位更稳）。
     this._badSince = 0;

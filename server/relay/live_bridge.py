@@ -477,13 +477,19 @@ class LiveBridge:
         客户端已过放行门控（mode/active_problem）+ gap 闸门并自带 reminder_count；本层只把
         「驼背了，第 N 次」这一事实作为 text 注入，让模型用 proactive 决定措辞与最终择时（措辞权属 E）。
         """
-        count = payload.get("reminder_count")
+        count = payload.get("reminder_count")  # 客户端透传的本会话累计次数（计数真源在客户端）
         nth = f"第 {count} 次" if count else "又一次"
         fact = f"[坐姿提醒事实] 用户驼背了，{nth}。请你自行决定怎么说、什么时候说出来。"
         if is_mock("MOCK_LIVE") or self._live is None:
             return  # MOCK：不连会话；坐姿动线属 M3，桩不造假字幕以免误导
         from google.genai import types
 
+        # turn_complete=True（择时决策，M3-04）：客户端 gap 闸门已保证只在下行静默 ≥gap_min_silence_ms
+        # 时才发 alert（此刻模型没在说话，不存在「打断关键思路」），故 True 不会切断在播音频；且坐姿核心
+        # 场景是孩子**静默书写**时驼背——没有用户轮次可搭载，必须由本事实主动触发模型发声，True 才能可靠
+        # 念出提醒（turn_complete=False 需 Gemini proactivity，而在未核验的 preview 模型上开 proactivity
+        # 有回归 Live 连接的风险）。「最多等一句、不抢话」由 skills 提示词软上界兜（M3-05）。
+        # 待办（M3-06 真机）：核验模型 proactivity 能力后，再评估是否切 proactive + turn_complete=False。
         await self._send_to_live(
             "posture",
             lambda: self._live.send_client_content(

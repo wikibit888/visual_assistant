@@ -45,7 +45,7 @@ export const MessageType = Object.freeze({
   FRAME_RESPONSE: "frame.response", // 客户端→后端：回一帧  {request_id, jpeg_base64}
 
   // —— 坐姿守护（POSTURE）——
-  POSTURE_ALERT: "posture.alert", // 客户端(端侧 D)→后端：驼背事件  {severity, ts}
+  POSTURE_ALERT: "posture.alert", // 客户端(端侧 D)→后端：驼背事件  {severity, ts, reminder_count?}
 
   // —— 控制面（CONTROL）——
   CONFIG_PUSH: "config.push", // 后端→客户端：前端阈值快照  {posture, voice}
