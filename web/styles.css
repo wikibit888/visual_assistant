@@ -337,12 +337,19 @@ button {
   flex-direction: column;
   gap: 2px;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--surface-2);
+  max-width: 78%; /* 气泡不占满整宽，留出左右对话留白 */
+  align-self: flex-start; /* 默认靠左 = 助手(AI) */
+  border-bottom-left-radius: 4px; /* 左侧气泡小尾角（聊天观感） */
 }
 
 .transcript-item[data-role="user"] {
-  background: rgba(59, 130, 246, 0.12);
+  background: rgba(59, 130, 246, 0.16);
+  align-self: flex-end; /* 靠右 = 用户(你) */
+  text-align: right; /* 角色标签 + 文本右对齐 */
+  border-bottom-left-radius: 12px; /* 还原左下角 */
+  border-bottom-right-radius: 4px; /* 右侧气泡小尾角 */
 }
 
 .transcript-item[data-final="false"] {

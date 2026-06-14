@@ -266,7 +266,9 @@ export class UI {
   }
 
   // ── 字幕/历史面板（PRD §4.1；仅 subtitles=true 时有内容）──
-  // 流式增量：final=false 时覆盖同角色最后一条「未定稿」条目；final=true 定稿。
+  // 流式增量：Live 转写按**增量片段**下发（每条只带新增的几个字，非累计全文）。同一角色的「未定稿」
+  // 条目把后续增量**追加**进同一气泡（final=false 期持续累加）；收到 final=true 即定稿，下一条增量另起
+  // 新气泡。角色变化（你↔助手）也另起新气泡。左右分栏：助手(AI)靠左、用户(你)靠右（CSS data-role）。
   appendTranscript({ role, text, final }) {
     const list = this._el.transcriptList;
     if (!list) return;
@@ -294,7 +296,11 @@ export class UI {
     }
     item.dataset.final = String(!!final);
     const body = item.querySelector(".transcript-text");
-    if (body) body.textContent = text;
+    if (body) {
+      // 累加而非覆盖：Live 转写是增量片段，覆盖会让一段话只剩最后一个增量（= 只显示最后几个字）。
+      // 续同一条草稿 → 追加；新气泡 → 写入首个增量。
+      body.textContent = sameRoleDraft ? body.textContent + text : text;
+    }
     list.scrollTop = list.scrollHeight;
   }
 
