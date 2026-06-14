@@ -1,2 +1,0 @@
-{"summary": "light_rain", "temp": 18.5, "precip": 0.6, "wind": 12.0, "source": "open-meteo"}
-{"summary": "clear", "temp": 24.0, "precip": 0.0, "source": "fallback"}

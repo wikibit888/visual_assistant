@@ -1,3 +1,0 @@
-{"kind": "check_draft", "verdict": "found_error", "error_line": 2, "error_type": "transpose_error", "confidence": 0.91}
-{"kind": "check_draft", "verdict": "all_correct", "confidence": 0.95}
-{"kind": "check_draft", "verdict": "unreadable", "confidence": 0.20}
