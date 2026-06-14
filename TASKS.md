@@ -61,11 +61,14 @@
 
 ## M4 · 生活收窄（唯一牺牲位）｜落后 / 时间告急 → 整段砍（开放/学习不受损）
 
+> **M4-01~03 已实现**（分支 `feat/m4-life`；`uv run pytest -q` → 47 绿，含 weather 真路径 5 测 + session 定位契约测；前端 `node --check` OK）。
+> ✅ = 代码完成；真机（定位授权 + 真实 Open-Meteo + 穿搭动线「具体到行动、不念数字」）并入彩排 M6。
+
 | ID | 任务 | 轨 / 模块 | MOCK 并行 | 验收标准 |
 |---|---|---|---|---|
-| M4-01 | `weather_get` 真 Open-Meteo（httpx）+ 城市/小时缓存 + 断网/定位失败写死兜底（绝不阻塞） | 后端 · tools | MOCK_WEATHER | 真实 + 断网兜底 + 回落上海，任何失败不抛 |
-| M4-02 | 前端定位：`navigator.geolocation` → 随 weather 调用注入 lat/lon；拒绝/失败静默 | 前端 · ui/client_state | — | 定位失败不阻塞；回落默认城市 |
-| M4-03 | skills 生活 profile：observe + weather 融合 → 具体到行动建议（加外套/带伞），不播报数字 | 并行 · skills | MOCK | 穿搭结论含可执行动作；默认不念城市/温度 |
+| ✅ M4-01 | `weather_get` 真 Open-Meteo（httpx）+ 坐标/小时缓存 + 断网/定位失败写死兜底（绝不阻塞）。WMO code→概述映射；任何失败 catch→_fallback | 后端 · tools | MOCK_WEATHER | 真实 + 断网兜底 + 回落上海，任何失败不抛 |
+| ✅ M4-02 | 前端定位：`navigator.geolocation`（best-effort）→ 经 `session.start` 注入 lat/lon → 后端存→注入 weather_get；拒绝/超时静默回落。契约二 SessionStart +lat/lon | 前端 · ui/main + 后端 relay | — | 定位失败不阻塞；回落默认城市 |
+| ✅ M4-03 | skills 生活 profile：observe + weather 融合 → 具体到行动建议（加外套/带伞），不播报数字/地名 | 并行 · skills | MOCK | 穿搭结论含可执行动作；默认不念城市/温度 |
 
 ---
 

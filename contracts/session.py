@@ -36,6 +36,11 @@ class SessionStart(BaseModel):
     mode: Mode = Mode.OPEN
     voice_mode: VoiceMode = VoiceMode.PTT
     subtitles: bool = Field(True, description="是否下发 transcript 给前端显示字幕")
+    lat: Optional[float] = Field(
+        None,
+        description="客户端 navigator.geolocation 纬度（生活模式天气定位）；缺省/拒绝 → 后端回落默认城市（PRD §5）",
+    )
+    lon: Optional[float] = Field(None, description="经度；同 lat，成对注入 weather_get，不让模型现编坐标")
 
 
 class SessionUpdate(BaseModel):

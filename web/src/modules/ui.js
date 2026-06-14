@@ -112,6 +112,8 @@ export class UI {
   async _onEnterClicked() {
     // 授权摄像头/麦克风（getUserMedia 内建 AEC；PRD §3）。失败则提示但不崩。
     this.setPermStatus("正在请求摄像头/麦克风授权…");
+    // 生活模式天气定位（best-effort，与下面授权并行发起，不额外拖慢进入）：拒绝/超时静默 → 后端回落默认城市。
+    const geoPromise = this._getGeo();
     try {
       // 真实授权：拿到 stream 即接到 <video>（voice/posture 复用同一 stream/<video>）。
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -141,12 +143,15 @@ export class UI {
       this.applyModeUI(this._mode);
       this.applyVoiceModeUI(this._voiceMode);
       this.applySubtitlesUI(this._subtitles);
+      const geo = await geoPromise; // {lat,lon} 或 {}（定位失败/拒绝）→ 缺则后端 weather_get 回落默认城市
       if (this.h.onEnter) {
         this.h.onEnter({
           mode: this._mode,
           voiceMode: this._voiceMode,
           subtitles: this._subtitles,
           stream, // main 可把同一 stream 传给 voice（采音）/ posture（取 <video> 即可）
+          lat: geo.lat,
+          lon: geo.lon,
         });
       }
     } catch (err) {
@@ -154,6 +159,22 @@ export class UI {
       this.setPermStatus(`授权失败：${err && err.name ? err.name : err}（可进入后用文字输入）`);
       console.warn("[ui] getUserMedia 失败", err);
     }
+  }
+
+  // 生活模式天气定位（best-effort）：navigator.geolocation；拒绝/超时/不支持都静默解析为 {} →
+  // 后端 weather_get 回落默认城市（PRD §5 定位失败不阻塞）。永不 reject、不卡进入。
+  _getGeo() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve({});
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+        (err) => {
+          console.warn("[ui] 定位失败/拒绝，天气将回落默认城市", err && err.message);
+          resolve({});
+        },
+        { timeout: 4000, maximumAge: 600000 },
+      );
+    });
   }
 
   setPermStatus(text) {

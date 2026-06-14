@@ -117,6 +117,9 @@ class LiveBridge:
         self.mode: Mode = Mode.OPEN
         self.voice_mode: VoiceMode = VoiceMode.PTT
         self.subtitles: bool = True
+        # 客户端定位（navigator.geolocation 经 session.start 注入）：weather_get 用，缺省 → 执行体回落默认城市。
+        self._lat: Optional[float] = None
+        self._lon: Optional[float] = None
 
         budget = int(cfg.get("session", {}).get("vision_budget_per_problem", 3))
         self.vision_budget = VisionBudget(budget)
@@ -140,6 +143,8 @@ class LiveBridge:
         self.mode = start.mode
         self.voice_mode = start.voice_mode
         self.subtitles = start.subtitles
+        self._lat = start.lat  # 生活模式天气定位（缺省/拒绝 → weather_get 回落默认城市）
+        self._lon = start.lon
         self.session_id = f"s-{int(time.time() * 1000):x}"
 
         await self._open_live_session()
@@ -240,6 +245,10 @@ class LiveBridge:
         「帧不可用」function_response，让模型改请用户口述（与「超预算」走同一类降级语义，PRD §5）。
         """
         await self._emit_tool_activity(name, "start")
+        # 生活模式天气定位：weather_get 的 lat/lon 由系统注入（客户端 geolocation 经 session.start 传入），
+        # 不让模型现编坐标（契约九 / 铁律）；未定位则不注入 → 执行体回落默认城市（PRD §5）。
+        if name == ToolName.WEATHER_GET.value and self._lat is not None and self._lon is not None:
+            args = {**args, "lat": self._lat, "lon": self._lon}
         try:
             result = await tool_dispatch.dispatch(
                 name, args, acquire_frame=self._acquire_frame, budget=self.vision_budget, cfg=self.cfg
