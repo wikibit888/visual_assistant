@@ -1,8 +1,12 @@
-"""契约自检：每条 fixture 都必须能被对应契约模型校验通过（M0 验收）。
+"""契约自检（Live 版）：每条 fixture 必须能被对应契约模型校验（新 M0 验收）。
 
 只依赖 pydantic（+ 标准库），无外部服务——验证契约层 + fixture 自洽、可独立运行：
-    pytest -q
-覆盖：契约一信封 + 二语音 + 三视觉(四值 verdict) + 四间隙/姿态 + 八 planner 输出 + 十工作记忆。
+    uv run pytest -q
+
+两类 fixture：
+  - 信封类（ENVELOPE_FILES）：客户端⇄后端 WS 控制帧，整条是 Envelope（契约一），按 type 再校 payload。
+  - 工具结果类（TOOL_RESULT_FILES）：function_call/response 的内部 schema（不经客户端 WS），
+    每条是裸 payload，直接对固定模型校验。
 """
 
 import json
@@ -11,59 +15,69 @@ from pathlib import Path
 import pytest
 
 from contracts import (
-    AsrFinal,
-    CheckDraftResult,
     ConfigPushPayload,
     Envelope,
-    GapOpen,
+    ErrorEvent,
+    FrameRequest,
+    FrameResponse,
+    Interrupted,
+    LookAtPageResult,
+    CheckDraftResult,
     ObserveResult,
-    PlannerOutput,
     PostureAlert,
-    ReadProblemResult,
-    TtsAck,
-    TtsSay,
-    TtsStop,
+    SessionReady,
+    SessionStart,
+    SessionUpdate,
+    TextInput,
+    ToolActivity,
+    Transcript,
     Verdict,
     WeatherGetArgs,
     WeatherResult,
-    WorkingMemory,
+    MessageType,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
-# type → payload 模型（信封类 fixture）。vision.result 按 payload.kind 再分。
+# type → payload 模型（信封类）。空载 type（payload={}）登记为 None：只校信封结构。
 PAYLOAD_MODEL = {
-    "asr.final": AsrFinal,
-    "tts.say": TtsSay,
-    "tts.stop": TtsStop,
-    "tts.ack": TtsAck,
-    "weather.request": WeatherGetArgs,
-    "weather.result": WeatherResult,
-    "posture.alert": PostureAlert,
-    "gap.open": GapOpen,
+    "session.start": SessionStart,
+    "session.update": SessionUpdate,
+    "session.ready": SessionReady,
+    "input.activity_start": None,
+    "input.activity_end": None,
+    "interrupted": Interrupted,
+    "transcript": Transcript,
+    "tool.activity": ToolActivity,
+    "frame.request": FrameRequest,
+    "frame.response": FrameResponse,
     "config.push": ConfigPushPayload,
-}
-VISION_BY_KIND = {
-    "read_problem": ReadProblemResult,
-    "check_draft": CheckDraftResult,
-    "observe": ObserveResult,
+    "text.input": TextInput,
+    "error": ErrorEvent,
+    "posture.alert": PostureAlert,
 }
 
 ENVELOPE_FILES = [
-    "voice.jsonl",
-    "vision_read_problem.jsonl",
-    "vision_check_draft.jsonl",
-    "vision_observe.jsonl",
-    "weather.jsonl",
+    "session.jsonl",
+    "audio.jsonl",
+    "transcript.jsonl",
+    "frame.jsonl",
+    "control.jsonl",
     "posture_alert.jsonl",
-    "gap_open.jsonl",
-    "config_push.jsonl",
 ]
+
+# 工具结果类（裸 payload → 固定模型）。
+TOOL_RESULT_FILES = {
+    "vision_look_at_page.jsonl": LookAtPageResult,
+    "vision_check_draft.jsonl": CheckDraftResult,
+    "vision_observe.jsonl": ObserveResult,
+    "weather_args.jsonl": WeatherGetArgs,
+    "weather_result.jsonl": WeatherResult,
+}
 
 
 def _lines(name):
-    path = FIXTURES / name
-    with path.open(encoding="utf-8") as f:
+    with (FIXTURES / name).open(encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
 
 
@@ -73,42 +87,45 @@ def _envelope_rows():
             yield name, row
 
 
+def _tool_rows():
+    for name, model in TOOL_RESULT_FILES.items():
+        for row in _lines(name):
+            yield name, model, row
+
+
 @pytest.mark.parametrize("name,row", list(_envelope_rows()))
 def test_envelope_and_payload_valid(name, row):
     """信封结构（契约一）+ payload（对应契约模型）双重校验。"""
     env = Envelope.model_validate(row)
-    if env.type.value == "vision.result":
-        model = VISION_BY_KIND[env.payload["kind"]]
+    assert env.type.value in PAYLOAD_MODEL, f"{name}: 未登记 type={env.type.value} 的 payload 模型"
+    model = PAYLOAD_MODEL[env.type.value]
+    if model is None:  # 空载 type：只要求 payload 是（空）对象
+        assert env.payload == {}, f"{name}: type={env.type.value} 应为空载 payload"
     else:
-        model = PAYLOAD_MODEL.get(env.type.value)
-    assert model is not None, f"{name}: 未登记 type={env.type.value} 的 payload 模型"
-    model.model_validate(env.payload)
+        model.model_validate(env.payload)
 
 
-def test_four_verdicts_each_present():
-    """契约三：四值 verdict 四种取值各至少一条样例。"""
-    seen = set()
-    for row in _lines("vision_check_draft.jsonl"):
-        seen.add(CheckDraftResult.model_validate(row["payload"]).verdict)
-    assert seen == set(Verdict), f"四值 verdict 不齐：缺 {set(Verdict) - seen}"
+@pytest.mark.parametrize("name,model,row", list(_tool_rows()))
+def test_tool_result_payload_valid(name, model, row):
+    """工具 function_call/response 的内部 schema 校验（裸 payload）。"""
+    model.model_validate(row)
 
 
-def test_planner_outputs_valid():
-    """契约八：planner 结构化输出（answer/tool_calls/clarify）。"""
-    rows = _lines("planner_output.jsonl")
-    assert rows, "planner_output fixture 为空"
-    for row in rows:
-        PlannerOutput.model_validate(row)
+def test_every_message_type_has_a_fixture():
+    """全量 MessageType 都有 fixture 覆盖——新增 type 必须补样例（防协议漂移）。"""
+    seen = {Envelope.model_validate(row).type for _, row in _envelope_rows()}
+    missing = set(MessageType) - seen
+    assert not missing, f"以下 MessageType 缺 fixture：{sorted(m.value for m in missing)}"
 
 
-def test_working_memory_valid():
-    """契约十：工作记忆 schema。"""
-    for row in _lines("working_memory.jsonl"):
-        WorkingMemory.model_validate(row)
+def test_three_verdicts_each_present():
+    """契约八：verdict 三种取值（found_error/all_correct/unreadable）各至少一条样例。"""
+    seen = {CheckDraftResult.model_validate(row).verdict for row in _lines("vision_check_draft.jsonl")}
+    assert seen == set(Verdict), f"verdict 不齐：缺 {set(Verdict) - seen}"
 
 
 def test_found_error_requires_error_line():
-    """契约三红线：verdict=found_error 缺 error_line 必须被拒。"""
+    """契约八红线：verdict=found_error 缺 error_line 必须被拒。"""
     with pytest.raises(Exception):
         CheckDraftResult.model_validate(
             {"kind": "check_draft", "verdict": "found_error", "confidence": 0.9}

@@ -1,0 +1,2 @@
+{"type": "frame.request", "ts": 1718200030000, "channel": "frame", "schema_version": "0.1", "payload": {"request_id": "f-001", "kind": "look_at_page"}}
+{"type": "frame.response", "ts": 1718200030400, "channel": "frame", "schema_version": "0.1", "payload": {"request_id": "f-001", "jpeg_base64": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA=="}}

@@ -1,1 +1,0 @@
-{"type": "vision.result", "ts": 1718265602000, "turn_id": "t-000002", "channel": "vision", "payload": {"kind": "read_problem", "problem_text": "解方程 2x + 3 = 11", "confidence": 0.88}, "schema_version": "0.1"}

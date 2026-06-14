@@ -1,52 +1,70 @@
-# 契约索引（M0 钉死 · 对照 PRD §7.7）
+# 契约索引（Live 版 · 对照 PRD §3 / §4）
 
-> 这是跨模块的**真理来源**。改动任何契约 = 改动基线，需决策人授权 + 同步 fixtures。
-> 铁律（PRD §7.1）：跨模块只走总线消息（契约一）；禁互相 import 内部对象；
-> `gap.open` 只由 A 广播；`tts.say/stop` 只发 B；D 只输出 `posture.alert`；
-> 每个字经 A 的确定性护栏；planner 不得绕过护栏直产 TTS，护栏不得被提示词关闭。
+> 这是跨进程的**真理来源**。改动任何契约 = 改动基线，需决策人授权 + 同步 fixtures + CLAUDE.md。
+> 架构（PRD §4.1）：客户端 ⇄ 单 WebSocket ⇄ 后端中继 ⇄ 供应商 Live 会话。编排循环 + VAD/打断/
+> ASR/TTS 全塌进 Live 模型；确定性收敛到**三个落点**——① 工具执行体（绿层）② 客户端状态/闸门
+> （蓝层）③ 提示词约束（server/skills）。
 
-| # | 契约 | PRD 形态 | 落点文件 | 关键符号 |
-|---|---|---|---|---|
-| 一 | 消息信封 | Pydantic | `envelope.py` + `message_types.py` | `Envelope` / `MessageType` / `Channel` |
-| 二 | ASR 出口 / TTS 入口 | 文档 + Pydantic | `voice.py` | `AsrFinal` / `TtsSay` / `TtsStop` / `TtsAck`（stop=停+清队列+ack） |
-| 三 | 视觉结果 schema | 文档 + Pydantic | `vision.py` | `VisionKind` / `Verdict`(四值) / `ReadProblemResult` / `CheckDraftResult` / `ObserveResult` |
-| 四 | 轮次状态机 + 间隙仲裁 | 文档 | `state_machine.py` | `TurnState`(五态) / `GapOpen` / `PostureAlert`；半双工 gate；放行门控 |
-| 五 | 错误降级 | 注释 | `errors.py` | `Degradation`(RETRY/FALLBACK_TEXT/ABORT/TOOL_FAIL) |
-| 六 | MOCK 开关 | env | `mock.py` + `.env.example` | `KNOWN_MOCKS` / `is_mock()` |
-| 七 | 配置密钥 | 文件 | `config_schema.py` + `config.yaml` + `.env.example` | `ENV_KEYS` / `REQUIRED_CONFIG_SECTIONS` / `load_config()` |
-| 八 | 编排循环 + 工具注册表 | Pydantic + 文档 | `orchestration.py` | `PlannerOutput` / `Mode` / `ToolName` / `ToolSpec` / `RailStep` / `TOOL_REGISTRY` |
-| 九 | 答案护栏（可选） | 文档 | `answer_guard.py` | `AnswerGuardConfig` / `GuardDecision`（循环外、默认关） |
-| 十 | 工作记忆 schema | Pydantic | `working_memory.py` | `WorkingMemory`（仅内存不落盘）/ `MemoryNoteArgs` / `MemoryRecallArgs` |
+## 契约清单
 
-辅助契约：`weather.py`（weather.get 工具 I/O，挂契约八工具注册表）。
+| # | 契约 | 落点文件 | 关键符号 |
+|---|---|---|---|
+| 一 | 控制信封 + 协议枚举 | `envelope.py` + `protocol.py` | `Envelope` / `MessageType` / `Channel` |
+| 二 | 会话生命周期 + 模式 | `session.py` | `Mode` / `VoiceMode` / `SessionStart` / `SessionUpdate` / `SessionReady` |
+| 三 | 音频轮次控制 + 打断 | `audio.py` | `Interrupted`（PTT `input.activity_*` 为空载信号） |
+| 四 | 字幕 + 工具活动 | `transcript.py` | `Transcript` / `ToolActivity` / `TranscriptRole` / `ToolPhase` |
+| 五 | 摄像头单帧往返 | `frame.py` | `FrameRequest` / `FrameResponse` |
+| 六 | 控制面杂项 | `control.py` | `TextInput` / `ErrorEvent` |
+| 七 | 坐姿守护事件 | `posture.py` | `PostureAlert` |
+| 八 | 视觉工具结果 | `vision.py` | `VisionKind` / `Verdict`(三值) / `LookAtPageResult` / `CheckDraftResult` / `ObserveResult` |
+| 九 | 天气工具 I/O | `weather.py` | `WeatherGetArgs` / `WeatherResult` |
+| 十 | 工具注册表 | `tools.py` | `ToolName` / `ToolSpec` / `TOOL_REGISTRY` / `MODE_TOOLSETS` |
+| 十一 | 错误降级 | `errors.py` | `Degradation`(RETRY/FALLBACK_TEXT/FALLBACK_DATA/ABORT) |
+| 十二 | MOCK 开关 | `mock.py` + `.env.example` | `KNOWN_MOCKS`(LIVE/VISION/WEATHER) / `is_mock()` |
+| 十三 | config.push 下发 | `config_push.py` | `ConfigPushPayload`(posture+voice 子树) |
+| 十四 | 配置与密钥 | `config_schema.py` + `config.yaml` + `.env.example` | `ENV_KEYS` / `REQUIRED_CONFIG_SECTIONS` / `load_config()` |
 
-## type → payload 模型映射（信封校验用）
+## WS 协议：type → channel → payload 模型（信封类，客户端 ⇄ 后端）
 
-| MessageType | channel | payload 模型 |
+| MessageType | 方向 | channel | payload 模型 |
+|---|---|---|---|
+| `session.start` | C→S | session | `session.SessionStart` |
+| `session.update` | C→S | session | `session.SessionUpdate` |
+| `session.ready` | S→C | session | `session.SessionReady` |
+| `input.activity_start` | C→S | audio | `{}`（空载，PTT 按下信号） |
+| `input.activity_end` | C→S | audio | `{}`（空载，PTT 松手信号） |
+| `interrupted` | S→C | audio | `audio.Interrupted` |
+| `transcript` | S→C | transcript | `transcript.Transcript` |
+| `tool.activity` | S→C | transcript | `transcript.ToolActivity` |
+| `frame.request` | S→C | frame | `frame.FrameRequest` |
+| `frame.response` | C→S | frame | `frame.FrameResponse` |
+| `posture.alert` | C→S | posture | `posture.PostureAlert` |
+| `config.push` | S→C | control | `config_push.ConfigPushPayload`（建连即发） |
+| `text.input` | C→S | control | `control.TextInput` |
+| `error` | S→C | control | `control.ErrorEvent` |
+
+> 音频本体（PCM16 上行 / PCM24 下行）走 **WS 二进制帧**，裸字节、**不裹信封**（B 内部传输）。
+> 文本帧恒为信封、二进制帧恒为音频——无帧类型歧义。
+
+## 工具 function_call / response（后端内部，不经客户端 WS）
+
+| 工具 | args | result（function_response） | mock |
+|---|---|---|---|
+| `look_at_page` | (无入参，即刻抓帧) | `vision.LookAtPageResult{text, confidence}` | MOCK_VISION |
+| `check_draft` | (无入参，即刻抓帧) | `vision.CheckDraftResult{verdict, error_line?, confidence}` | MOCK_VISION |
+| `observe` | `{hint?}` | `vision.ObserveResult{description, confidence}` | MOCK_VISION |
+| `weather_get` | `weather.WeatherGetArgs{lat?, lon?}` | `weather.WeatherResult{temp, precip, ...}` | MOCK_WEATHER |
+
+> 客户端只通过 `tool.activity` 感知「工具在动」，看不到工具内部结果。视觉需要帧 → 经
+> `frame.request/response` 向客户端要当前帧（PRD §4.1 按需抓帧）。
+
+## 确定性三落点 → 契约 / config 映射（PRD §1 / §4.1 / §5）
+
+| 落点 | 承载 | 契约 / config 键 |
 |---|---|---|
-| `asr.final` | voice | `voice.AsrFinal` |
-| `tts.say` | voice | `voice.TtsSay` |
-| `tts.stop` | voice | `voice.TtsStop` |
-| `tts.ack` | voice | `voice.TtsAck` |
-| `vision.request` | vision | `{kind, hint?}` |
-| `vision.result` | vision | `vision.ReadProblemResult` / `CheckDraftResult` / `ObserveResult`（按 kind） |
-| `weather.request` | weather | `weather.WeatherGetArgs` |
-| `weather.result` | weather | `weather.WeatherResult` |
-| `posture.alert` | posture | `state_machine.PostureAlert` |
-| `gap.open` | orchestrator | `state_machine.GapOpen` |
-| `config.push` | control | `config_push.ConfigPushPayload`（A 建连下发 turn_state+posture 子树） |
+| ① 工具执行体（绿层） | 抓几帧 / 失败回落 / confidence / 视觉预算 | 八·九·十 + `session.vision_budget_per_problem` / `vision_retry_max` |
+| ② 客户端状态/闸门（蓝层） | active_problem / reminder_count / gap 判定 / mic gate | 四·七·十三 + `posture.*` / `voice.*`（经 config.push 下发） |
+| ③ 提示词约束（server/skills） | 措辞 / 升级语气 / 择时软上界 / 低置信怎么说 | 系统提示 profile（无 config 阈值，不进 prompt） |
 
-> 注：PRD §7.7 契约一正文枚举的是**终态**总线消息；`vision.request` / `weather.request`（工具往返的请求侧）是**实现级**信封——工具调用同样只走信封（铁律），不另开内部通道。此为文档↔实现对账闭环，未改任何 PRD 产品决策。
-> 注：`posture.alert.turn_id` 由 A 在接收时关联（D 端侧无回合上下文），详见 `state_machine.py:PostureAlert`。
-
-## 护栏 → 契约/config 映射（PRD §7.4）
-
-| 护栏 | 契约 | config 键 |
-|---|---|---|
-| 置信门控 | 三 | `orchestration.confidence_gate=0.6` |
-| 澄清上限 | 八 | `orchestration.clarify_max=1` |
-| loop 上限 | 八 | `orchestration.max_tool_rounds=2` |
-| 视觉预算 | 八 | `orchestration.vision_budget_per_problem=3` |
-| 粘滞兜底 | 八 | `roles.planner.planner_timeout_ms=800` |
-| 姿态不抢话 | 四 | `posture.*` + `turn_state.gap_window_ms` |
-| 答案护栏（可选） | 九 | `answer_guard.enabled=false` |
+> 坐姿三条（PRD §3.2.2）：检测端侧（D）、放行+gap 闸门客户端（mode==learning 或 active_problem!=null）、
+> 措辞与最终择时交 Live 模型（proactive）。`posture.alert` 不进工具表（push，非模型能拉的 function call）。

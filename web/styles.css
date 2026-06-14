@@ -1,0 +1,425 @@
+/* Visual Assistant v0.1 · 样式（深色友好，摄像头为主视觉；PRD 用户前端设计要求）。
+   两屏：#landing 引导页（居中卡片）/ #app 主界面（摄像头铺底 + 浮层控件 + 右侧字幕面板）。
+   纯原生 CSS，无框架、无构建（PRD §3 不打包）。颜色集中在 :root 变量，便于统一调。 */
+
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-2: #1c2330;
+  --border: #2a3340;
+  --text: #e6edf3;
+  --text-dim: #9aa7b4;
+  --accent: #3b82f6;
+  --accent-2: #2563eb;
+  --ok: #22c55e;
+  --alert: #f59e0b;
+  --danger: #ef4444;
+  --radius: 12px;
+  --gap: 12px;
+  font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ── ① 引导页 landing ─────────────────────────────────────────────────── */
+#landing {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(120% 120% at 50% 0%, #15233b 0%, var(--bg) 55%);
+}
+
+.landing-card {
+  width: min(520px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.landing-title {
+  margin: 0 0 4px;
+  font-size: 28px;
+  letter-spacing: 0.5px;
+}
+
+.landing-sub {
+  margin: 0 0 24px;
+  color: var(--text-dim);
+}
+
+.field-label {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ── 模式选择器（引导页竖排卡片 / 主界面 compact 横排）──────────────────── */
+.mode-group {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr 1fr;
+  margin-bottom: 24px;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, transform 0.05s;
+}
+
+.mode-btn:hover {
+  border-color: #3a4756;
+}
+
+.mode-btn:active {
+  transform: translateY(1px);
+}
+
+.mode-btn.selected {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.18), rgba(59, 130, 246, 0.06));
+}
+
+.mode-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.mode-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.primary-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  transition: background 0.15s;
+}
+
+.primary-btn:hover {
+  background: var(--accent-2);
+}
+
+.perm-status {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* ── ② 主界面 app ─────────────────────────────────────────────────────── */
+#app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr minmax(300px, 380px);
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "camera transcript"
+    "controls transcript";
+  gap: var(--gap);
+  padding: var(--gap);
+}
+
+/* 摄像头铺底（主视觉），浮层控件叠在上面 */
+#camera-pane {
+  grid-area: camera;
+  position: relative;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  min-height: 360px;
+}
+
+#camera {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* 镜像，符合自拍直觉 */
+  transform: scaleX(-1);
+}
+
+/* 右上模式选择器（浮在摄像头上）*/
+.mode-selector {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+}
+
+.mode-group.compact {
+  display: flex;
+  grid-template-columns: none;
+  gap: 4px;
+  margin: 0;
+  padding: 4px;
+  background: rgba(13, 17, 23, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.mode-group.compact .mode-btn {
+  flex-direction: row;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 13px;
+}
+
+.mode-group.compact .mode-btn.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* 坐姿状态指示器（仅 learning 显示）*/
+.posture-indicator {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(13, 17, 23, 0.72);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.posture-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.posture-indicator[data-state="ok"] .posture-dot {
+  background: var(--ok);
+}
+
+.posture-indicator[data-state="alert"] .posture-dot {
+  background: var(--alert);
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25);
+}
+
+/* 控制条 */
+.controls {
+  grid-area: controls;
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.voice-toggle {
+  padding: 10px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+
+.voice-toggle[data-voice-mode="free"] {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.subtitles-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-dim);
+  user-select: none;
+}
+
+.ptt-btn {
+  padding: 12px 28px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  color: #fff;
+  font-weight: 600;
+  touch-action: none; /* 防触屏长按选中/滚动干扰 PTT */
+  user-select: none;
+}
+
+.ptt-btn:active {
+  background: var(--accent-2);
+  transform: scale(0.98);
+}
+
+.status {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* 字幕/历史面板 */
+.transcript-panel {
+  grid-area: transcript;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  min-height: 0;
+}
+
+.tool-activity {
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--accent);
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 8px;
+}
+
+.transcript-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 160px;
+}
+
+.transcript-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.transcript-item[data-role="user"] {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.transcript-item[data-final="false"] {
+  opacity: 0.65; /* 流式增量未定稿：弱化提示 */
+}
+
+.transcript-role {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.transcript-text {
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+/* 文字输入兜底 */
+.text-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.text-input {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.send-btn {
+  padding: 10px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+
+.send-btn:hover {
+  border-color: var(--accent);
+}
+
+/* 错误/降级条 */
+.error-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 12px 20px;
+  background: var(--danger);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* 窄屏：字幕面板移到下方，单列堆叠 */
+@media (max-width: 880px) {
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "camera"
+      "controls"
+      "transcript";
+  }
+
+  .controls {
+    flex-wrap: wrap;
+  }
+}

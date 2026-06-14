@@ -1,0 +1,3 @@
+{"type": "input.activity_start", "ts": 1718200010000, "channel": "audio", "schema_version": "0.1", "payload": {}}
+{"type": "input.activity_end", "ts": 1718200011000, "channel": "audio", "schema_version": "0.1", "payload": {}}
+{"type": "interrupted", "ts": 1718200012000, "channel": "audio", "schema_version": "0.1", "payload": {"reason": "barge_in"}}

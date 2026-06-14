@@ -1,32 +1,113 @@
 <!doctype html>
 <html lang="zh-CN">
-  <!-- Visual Assistant v0.1 · 前端进程（Chrome 页面，不用 Electron；PRD §7.1）。
-       getUserMedia + 内建 AEC + MediaPipe JS（D 姿态）+ vad-web（B 语音）。
-       M1-01：放好 DOM 占位 + 稳定 id（地基定稿），业务由 b_voice/d_posture（批1）填。 -->
+  <!-- Visual Assistant v0.1 · 前端进程（Chrome 页面，Live 架构；PRD §3 / §4）。
+       拓扑：浏览器 ⇄ 单 WebSocket ⇄ 后端 FastAPI 中继 ⇄ Gemini Live。
+       前端只剩：采播音频 + 端侧姿态 + 客户端确定性状态/闸门 + UI。
+       两屏：① #landing 引导页（选模式 + 授权摄像头/麦克风）→ ② #app 主界面。
+       稳定 DOM id 契约见 web/src/modules/ui.js 顶部（ui/voice/posture/main 共享）。 -->
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Visual Assistant v0.1</title>
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main id="app">
-      <!-- ── 稳定 id 契约（供 b_voice / d_posture querySelector；批1 按此对接）──
-           #camera     摄像头预览 <video>：D 姿态（MediaPipe Pose）+ C 抓帧共用
-           #ptt-btn    对讲机 PTT 按钮：B 语音（按住说话/打断）
-           #subtitles  字幕兜底区：B 显示 asr/tts 文本（TTS 失败回退字幕，§8）
-           #status     连接状态：main.js 写 connected/disconnected/error -->
+    <!-- ── ① 引导页 landing：选模式 + 授权 → 进入 ───────────────────────── -->
+    <section id="landing">
+      <div class="landing-card">
+        <h1 class="landing-title">Visual Assistant</h1>
+        <p class="landing-sub">看得见、听得懂、自己会编排的桌面助手</p>
 
+        <p class="field-label">选择模式</p>
+        <!-- 三支柱（PRD §2）。交互原型先围绕「开放对话」打磨 → 默认选 open。 -->
+        <div id="landing-mode-group" class="mode-group" role="group" aria-label="模式选择">
+          <button type="button" class="mode-btn" data-mode="learning" aria-pressed="false">
+            <span class="mode-name">学习</span>
+            <span class="mode-desc">作业辅导 + 坐姿守护</span>
+          </button>
+          <button type="button" class="mode-btn" data-mode="life" aria-pressed="false">
+            <span class="mode-name">生活</span>
+            <span class="mode-desc">天气穿搭 + 日常</span>
+          </button>
+          <button type="button" class="mode-btn selected" data-mode="open" aria-pressed="true">
+            <span class="mode-name">开放对话</span>
+            <span class="mode-desc">什么都能聊</span>
+          </button>
+        </div>
+
+        <button id="landing-enter" type="button" class="primary-btn">
+          授权摄像头/麦克风并进入
+        </button>
+        <p id="perm-status" class="perm-status" aria-live="polite">尚未授权</p>
+      </div>
+    </section>
+
+    <!-- ── ② 主界面 app：摄像头为主视觉 + 右上模式 + 字幕 + 坐姿指示器 ───── -->
+    <main id="app" hidden>
+      <!-- 摄像头预览（D 姿态 MediaPipe + C 抓帧共用；voice/posture/main 取 #camera）。 -->
       <section id="camera-pane">
         <video id="camera" autoplay muted playsinline></video>
+        <!-- 抓帧用离屏 canvas（frame.request → JPEG base64；main._respondFrame 用）。 -->
+        <canvas id="frame-canvas" hidden></canvas>
+
+        <!-- 右上模式选择器（运行时切模式 → session.update）。 -->
+        <div id="mode-selector" class="mode-selector">
+          <div id="mode-group" class="mode-group compact" role="group" aria-label="模式切换">
+            <button type="button" class="mode-btn" data-mode="learning" aria-pressed="false">学习</button>
+            <button type="button" class="mode-btn" data-mode="life" aria-pressed="false">生活</button>
+            <button type="button" class="mode-btn" data-mode="open" aria-pressed="false">开放</button>
+          </div>
+        </div>
+
+        <!-- 坐姿状态指示器：仅 learning 显示（ui.applyModeUI 控显隐；PRD §3.2.2）。 -->
+        <div id="posture-indicator" class="posture-indicator" data-state="idle" hidden>
+          <span class="posture-dot" aria-hidden="true"></span>
+          <span class="posture-label">坐姿监测中</span>
+        </div>
       </section>
 
-      <section id="controls">
-        <button id="ptt-btn" type="button">按住说话</button>
-        <span id="status">connecting…</span>
+      <!-- 控制条：语音模式切换 + 字幕开关 + PTT + 状态。 -->
+      <section id="controls" class="controls">
+        <button id="voice-mode-toggle" type="button" class="voice-toggle" data-voice-mode="ptt">
+          对讲机（按住说话）
+        </button>
+
+        <label class="subtitles-label">
+          <input id="subtitles-toggle" type="checkbox" checked />
+          <span>显示字幕</span>
+        </label>
+
+        <button id="ptt-btn" type="button" class="ptt-btn">按住说话</button>
+
+        <span id="status" class="status">connecting…</span>
       </section>
 
-      <section id="subtitles" aria-live="polite"></section>
+      <!-- 字幕/历史面板：字幕列表 + 工具活动随字幕开关显隐（PRD §4.1）。
+           注意：文字输入兜底**不**放面板内——它是语音/字幕都不便时的退路（PRD §5），
+           必须独立常显，关字幕时仍可用。见下方 #text-input-row。 -->
+      <section id="transcript-panel" class="transcript-panel" aria-label="对话字幕与历史">
+        <div id="tool-activity" class="tool-activity" aria-live="polite" hidden></div>
+        <div id="transcript-list" class="transcript-list" aria-live="polite"></div>
+
+        <!-- 文字输入兜底（语音降级；PRD §5）。常显，不随字幕开关隐藏。
+             放面板底部但作为独立行：applySubtitlesUI 只切 #transcript-list/#tool-activity，
+             绝不 hidden 整个面板，故此行永远可见。 -->
+        <div id="text-input-row" class="text-input-row">
+          <input
+            id="text-input"
+            type="text"
+            class="text-input"
+            placeholder="语音不便时，文字输入…"
+            autocomplete="off"
+          />
+          <button id="text-input-send" type="button" class="send-btn">发送</button>
+        </div>
+      </section>
+
+      <!-- 错误/降级提示条（默认隐藏；error 信封触发）。 -->
+      <div id="error-banner" class="error-banner" role="alert" hidden></div>
     </main>
+
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>
