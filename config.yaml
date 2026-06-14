@@ -45,8 +45,8 @@ posture:
   hunchback_hold_ms: 30000         # [决策] = 30s（PRD §3.2/§11 已对齐 30s）；回归更长只改此处
   reminder_cooldown_ms: 60000      # §3.2 同类提醒 60s 冷却
   release_scope: active_problem    # §3.2.2 放行 = mode==learning 或 active_problem!=null（客户端裁）
-  thoracic_kyphosis_deg: 30        # 双条件之一：胸椎后凸角阈（占位，真机标定）
-  head_forward_ratio: 0.15         # 双条件之一：头部前伸/与桌面距离（占位，真机标定）
+  thoracic_kyphosis_deg: 30        # 双条件之一：胸椎后凸角阈（占位·真机标定·改此一处生效，前端 posture 从 config.push 读）
+  head_forward_ratio: 0.15         # 双条件之一：头部前伸/与桌面距离（占位·真机标定·改此一处生效，前端 posture 从 config.push 读）
   gap_min_silence_ms: 1500         # §4.2 客户端 gap 闸门：静默≥此值才算缝隙，才注入坐姿 alert
 
 # ── 天气（weather_get；Open-Meteo 无 key；PRD §3 / §5）──
