@@ -124,7 +124,13 @@ export class UI {
       });
       const video = document.getElementById("camera");
       if (video) {
+        // M1-06：摄像头流接到 #camera（C 抓帧 + D 姿态共用同一 <video>）。
         video.srcObject = stream;
+        // autoplay+muted 通常自动播；显式 play() 兜底（部分浏览器策略需手势后触发，进入点击即手势）。
+        const p = video.play && video.play();
+        if (p && typeof p.catch === "function") {
+          p.catch((e) => console.warn("[ui] camera video.play() 被拒（autoplay 兜底）", e && e.name));
+        }
       }
       this.setPermStatus("授权成功");
       // 把待选项一次性交给 main：main 连 WS + 等 config.push + 发 session.start。

@@ -29,12 +29,16 @@ session:
   vision_budget_per_problem: 3     # §5 抓帧超预算封顶（识题1 + 批改≤2）；工具执行层计数
   vision_retry_max: 1              # [决策] PRD 未给值，缺省 1
   first_response_target_ms: 1500   # §5 首响目标（监测口径，非硬阈；填充语/复述盖往返）
+  frame_timeout_ms: 4000           # [决策] 单帧往返超时：客户端漏回 frame.response 时不让模型泵死锁（PRD §5 抓帧确定性绿层）
+  live_ping_interval_ms: 20000     # [方案A] Live ws keepalive ping 间隔（0=禁 ping，靠数据流/TCP 探活）
+  live_ping_timeout_ms: 60000      # [方案A] 等 pong 容忍上限：默认 20s→60s，扛 China→Google 实时流抖动（PRD §5）
 
 # ── 语音轮次 / 客户端闸门（确定性·蓝层；前端阈值经 config.push 下发，前端不自带魔数）──
 voice:
   default_voice_mode: ptt          # §4.3 开场默认对讲机（ptt | free）
   half_duplex_gate: true           # §5 自由对话/坐姿播报期半双工 gate 麦克风（消自激）
   barge_in_min_ms: 300             # §4.4 自由对话判打断的最小连续人声
+  playback_drain_quiet_ms: 120     # §5 判「播报真结束」的去抖静默窗：环形缓冲须连续空 ≥ 此时长才算 drained，吸收流式块间抖动（前端 worklet 据此与采样率算量子数，不拿魔数）
 
 # ── 坐姿守护（PRD §3.2 / §3.2.2；100% 端侧，零云调用）──
 posture:

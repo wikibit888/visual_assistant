@@ -23,10 +23,13 @@ import {
   VisionKind,
 } from "./modules/protocol.js";
 
-// 同源 ws(s)://host/ws（https→wss）。前端不带阈值魔数（阈值由 config.push 下发）。
+// 默认同源 ws(s)://host/ws（https→wss）。前后端分端口调试时用 ?api=host:port 覆盖后端地址
+// （前端静态服务器在 8080、后端 WS 在 8000 → 打开 http://localhost:8080/?api=localhost:8000）。
+// 前端不带阈值魔数（阈值由 config.push 下发）；?api 只覆盖 WS 目标 host，不引入业务魔数。
 function wsURL() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${location.host}/ws`;
+  const apiHost = new URLSearchParams(location.search).get("api") || location.host;
+  return `${proto}//${apiHost}/ws`;
 }
 
 class App {
@@ -177,7 +180,8 @@ class App {
 
     try {
       this.voice = new Voice(this.ws, this.state);
-      this.voice.init({ stream, voiceMode: this.session.voiceMode });
+      // 把 config.push 缓存（cfg）传入：voice 从 cfg.audio 读上/下行采样率（禁前端硬编码采样率）。
+      this.voice.init({ stream, voiceMode: this.session.voiceMode, cfg: this.cfg });
     } catch (e) {
       console.warn("[main] voice 装配失败（桩可容错）", e && e.message);
     }

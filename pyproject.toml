@@ -19,6 +19,8 @@ dependencies = [
     # —— 模型供应商 SDK（仅非 MOCK 路径需要）——
     "google-genai>=1.0",     # Gemini：Live 大脑 + vision 工具识别（新版 SDK）
     "openai>=1.30",          # OpenAI 备选 Live（gpt-realtime）
+    "python-socks>=2.8.1",
+    "socksio>=1.0.0",
 ]
 
 [dependency-groups]
