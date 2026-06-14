@@ -1,10 +1,10 @@
-"""契约五 · 错误降级（PRD §7.7，形态 = 注释/枚举）。
+"""契约十一 · 错误降级（PRD §5 / §8，形态 = 枚举）。
 
-降级动作封闭取值。A 编排核心据此处置工具/planner 异常（PRD §8 降级表）：
-  - RETRY         —— 受 config orchestration.vision_retry_max 约束的有限重试。
-  - FALLBACK_TEXT —— 走降级话术（loop 触顶 / planner 超时 / 粘滞兜底）。
-  - ABORT         —— 放弃本回合动作，维持现场景，不阻塞首响。
-  - TOOL_FAIL     —— 工具失败信号 → planner 重规划或降级。
+降级动作封闭取值。工具执行体 / 中继据此处置异常并经 `error` 事件建议客户端兜底：
+  - RETRY          —— 受 config session.vision_retry_max 约束的有限重试。
+  - FALLBACK_TEXT  —— 走字幕兜底（TTS 失败 / Live 断流 → 显示文字 + 文字输入框，PRD §8）。
+  - FALLBACK_DATA  —— 用写死数据顶上（天气断网兜底 / 定位失败回落城市，PRD §5）。
+  - ABORT          —— 放弃本次动作，维持现场景，不阻塞。
 """
 
 from enum import Enum
@@ -13,5 +13,5 @@ from enum import Enum
 class Degradation(str, Enum):
     RETRY = "RETRY"
     FALLBACK_TEXT = "FALLBACK_TEXT"
+    FALLBACK_DATA = "FALLBACK_DATA"
     ABORT = "ABORT"
-    TOOL_FAIL = "TOOL_FAIL"

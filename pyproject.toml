@@ -1,24 +1,24 @@
-# Visual Assistant v0.1 · 后端工程依赖（uv 管理）
-# 本文件 = 唯一依赖真相源（契约七）；密钥在 .env、阈值/模型名在 config.yaml。
+# Visual Assistant v0.1 · 后端工程依赖（uv 管理；Live 版）
+# 本文件 = 唯一依赖真相源（契约·配置）；密钥在 .env、阈值/模型名在 config.yaml。
 # 这是「应用」而非「库」：package = false，uv 只管 venv + 依赖，不构建/安装本仓自身。
 [project]
 name = "visual-assistant"
 version = "0.1.0"
-description = "Visual Assistant v0.1 backend — server/ + contracts/ (agentic, 单 WS)"
+description = "Visual Assistant v0.1 backend — Live 中继 + 工具执行体（单 WS）"
 requires-python = ">=3.11"
 dependencies = [
     # —— 核心（契约/骨架/测试必需）——
     "pydantic>=2.6",
     "pyyaml>=6.0",
     "python-dotenv>=1.0",
-    # —— 后端运行时（M1 起）——
+    # —— 后端运行时 ——
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "websockets>=12.0",
     "httpx>=0.27",            # Open-Meteo / 供应商 REST
     # —— 模型供应商 SDK（仅非 MOCK 路径需要）——
-    "openai>=1.30",          # OpenAI；deepseek 复用其兼容协议
-    "google-genai>=1.0",     # Gemini 新版 SDK（vision + asr/tts；旧 google-generativeai 已弃用）
+    "google-genai>=1.0",     # Gemini：Live 大脑 + vision 工具识别（新版 SDK）
+    "openai>=1.30",          # OpenAI 备选 Live（gpt-realtime）
 ]
 
 [dependency-groups]

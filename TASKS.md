@@ -1,103 +1,83 @@
-# TASKS.md · M1–M7 任务卡（拆自 PRD §10；2026-06「基座→收窄」+ 06-14「开放真机前置」重排）
+# TASKS.md · Live 版里程碑（拆自 PRD；2026-06-14「手搓→Live」技术骨干重构后重排）
 
-> 每卡工时 ≤2h；「MOCK 并行」= 置该 `MOCK_X=1` 即可脱真实依赖、与他人并行开发。
-> 止损线/硬门见 PRD §10。**契约号见 `contracts/CONTRACTS.md`。** M0/M1/M2 已交付（契约+骨架+开放对话基座）。
-> **2026-06-14 重排（决策人授权）**：M2 基座完成后，**先做「开放场景真机端到端」（新 M3，含真实云语音）再收窄学习/生活**——开放=基座（§5.1）、语音=唯一无 mock 退路的第一风险（§7.5），故前置。学习/生活/加固/彩排顺延为 **M4–M7**。
-> ⚠ **36h 框压力**：M3 把 M1 滑期的真机语音（真实 ASR/TTS）补回并前置，总量超出原 36h 窗；缓冲 = **天气穿搭（唯一牺牲位）先砍**（开放真机不受损）+ 加固/彩排压缩；最终交付范围由决策人定。
+> **新 M0 已交付**（本轮）：Live 契约（一~十四）+ 后端瘦骨架（中继 relay + 工具执行体 tools +
+> 技能 skills + 供应商 llm）+ 前端 shell 骨架（引导页+三模式+语音切换+字幕开关+学习坐姿指示器）+
+> config/.env + fixtures + 文档。`uv run pytest -q` 全绿。下面 M1–M6 在此基础上接。
 
----
-
-## M1 · 语音链路（PRD 2–12h）｜止损：4h 裸链路不通→全程对讲机；7h 自激压不住→锁半双工+对讲机；12h 硬墙
-
-| ID | 任务 | 负责模块 | 工时 | 依赖契约 | MOCK 并行 | 验收标准 |
-|---|---|---|---|---|---|---|
-| M1-01 | FastAPI 单 WS 装配 + 信封路由 | A/基础 | ✅ | 一 | 可（全 MOCK） | web↔server 信封双向贯通；按 `channel` 分发 |
-| M1-02 | 编排器骨架：loop+dispatch 空跑 | A | ✅ | 八/十 | `MOCK_PLANNER`+`MOCK_VISION` | asr.final→planner(脚本)→tts.say 空循环贯通，受 max_tool_rounds 约束 |
-| M1-03 | 确定性护栏骨架（置信门控/loop/澄清/视觉预算/粘滞） | A | ✅ | 三/八 | 可 | 各护栏触发有单测；护栏在循环外、不可被覆盖 |
-| M1-04 | 状态机 + 间隙仲裁（gap.open 广播 + 姿态放行门控） | A | ✅ | 四 | 可 | IDLE≥2s 开窗 1s（读 config）；放行门控 `learning∨active_problem` 单测 |
-| M1-05 | 前端 VAD/PTT/播放队列/**半双工 gate**（真机） | B | ✅ | 二/四 | 否（真机） | 对讲机按键说/打断；AI_SPEAKING 暂停采音、无自激 |
-| M1-06 | 后端流式 ASR → asr.final（**仅 MOCK + 骨架；真实云 ASR 欠债 → M3-02**） | B | ✅ | 二 | `MOCK_ASR` | MOCK 出固定文本（真实路径 NotImplementedError，移交 M3-02） |
-| M1-07 | 后端按句 TTS（首句先播）+ stop 语义（**仅 MOCK + 骨架；真实云 TTS 欠债 → M3-03**） | B | ✅ | 二 | `MOCK_TTS` | 按句播 MOCK 静音桩；stop=立即停+清队列+回 tts.ack（真实路径移交 M3-03） |
-| M1-08 | C 视觉 read_problem（gemini 多模态 / MOCK 读 fixture） | C | ✅ | 三 | `MOCK_VISION` | 返回合规 ReadProblemResult；MOCK 读 fixtures |
-| M1-09 | D 姿态双条件检测 → posture.alert（端侧） | D | ✅ | 四/§3.2.2 | 端侧独立（零云） | 双条件持续 `hunchback_hold_ms` 才发；低头写字不误触；只发 alert 不出声 |
-| M1-10 | E planner system prompt + 引导话术（结构化约束） | E | ✅ | 八 | `MOCK_LLM` | planner 输出符合 PlannerOutput schema；工具白名单生效；E 不内嵌路由 |
+> **三条并行轨**（MOCK 解耦，互不阻塞——PRD §1.5）：
+> - **契约轨**：已锁（`contracts/`）。动它 = 动基线，需决策人授权 + 同步 fixtures/测试。
+> - **后端轨 server/**：中继接真实 Live 会话 + 工具执行体真路径。`MOCK_LIVE/VISION/WEATHER=1` 可脱云开发。
+> - **前端轨 web/**：采播音频 + 端侧姿态 + 客户端状态/闸门 + UI。靠 WS 协议契约对接，后端可全 MOCK。
+>
+> **第一风险 = 语音链路本身**（PRD §5：强依赖云端、无离线退路）。故 M1 把 Live 真机闭环前置，
+> 围绕**开放对话**（基座，PRD §2/§5 动线最完整）先打通。止损：弱网无退路 → 网络预热/保底 +
+> 字幕兜底 + 文字输入降级（PRD §5/§8）。
 
 ---
 
-## M2 · 开放对话基座（PRD 12–18h）｜基座 = 三支柱复用核心（PRD §2/§5.1）｜止损：基座 loop 3 次干跑不稳→准备切 rails
+## M1 · Live 链路打通（开放对话真机端到端）｜第一风险前置
 
-| ID | 任务 | 负责模块 | 工时 | 依赖契约 | MOCK 并行 | 验收标准 |
-|---|---|---|---|---|---|---|
-| M2-01 | 编排循环接真 planner（deepseek 温度0+结构化）+ 快路径（原 M2-01） | A | ✅ | 八 | `MOCK_VISION` 仍可 | 文本回合零工具快路径；超时 800ms 维持现场景 |
-| M2-02 | 开放对话（全交 LLM + 诚实兜底 + 优雅收口）（原 M3-04） | A/E | ✅ | §5.4 | `MOCK_LLM` | 看不清/帮不上即明说；不落死分支；越界→「帮不上」 |
-| M2-03 | 工作记忆运行时 + memory_note/recall（原 M2-05） | A | ✅ | 十 | 进程内 | WM 读写正确；会话结束丢弃、绝不落盘 |
-| M2-04 | C observe 实现（穿搭/物体）+ observe fixture（原 M3-01；**基座多模态，生活被砍仍保留**） | C | ✅ | 三 | `MOCK_VISION` | 返回合规 ObserveResult；fixture 入库 |
-| M2-05 | E 开放对话 prompt + 口头小结 prompt（原 M3-06 开放/小结部分） | E | ✅ | 八 | `MOCK_LLM` | 期望管理话术坦诚；小结含做了几道+坐姿提醒几次 |
-| M2-06 | 工具序一致性初测（原 M2-08 初测部分） | E | ✅ | 八 | `MOCK_PLANNER` | 同动线工具调用序列一致（非逐字一致）；真 LLM 完整一致性专测留 M7 |
+| ID | 任务 | 轨 / 模块 | MOCK 并行 | 验收标准 |
+|---|---|---|---|---|
+| M1-01 | `live_bridge` 接真实 Gemini Live 会话：`client.aio.live` 连接 + 注入 `system_for_mode(mode)` profile + `MODE_TOOLSETS` 工具声明 + 回 `session.ready` | 后端 · relay/llm | MOCK_LIVE 仍可 | 真实会话建立；mode profile + 工具子集注入；session.ready 回客户端 |
+| M1-02 | 泵 Live 输出 → 客户端（音频 PCM24 下行 / `transcript` / `interrupted`）+ 客户端 PCM16 上行透传进会话 | 后端 · relay | — | 真机音频双向通；字幕流式下发；打断事件下发 |
+| M1-03 | `function_call` 派发 → `tool_dispatch` → `function_response`（含视觉预算计数 + `frame.request/response` 抓帧往返） | 后端 · relay/tools | MOCK_VISION 仍可 | `look_at_page` 真帧闭环；单题预算封顶；越预算回「念给我听」 |
+| M1-04 | AudioWorklet PCM16 采集 → 二进制帧上行 + 半双工 mic gate（AI_SPEAKING 期暂停采音，消自激） | 前端 · voice | — | 真机采音；gate 期不采；首轮无自激 |
+| M1-05 | PCM24 播放队列（边收边播）+ barge-in（收 `interrupted` 立即停播 + 清队列） | 前端 · voice | — | 首句先播；打断立停清队列 |
+| M1-06 | 摄像头帧抓取：收 `frame.request` → 抓 `<video>` 当前帧 JPEG base64 → `frame.response`（request_id 配对） | 前端 · voice/ui | — | 真帧回传；配对正确；受视觉预算约束 |
+| M1-07 | 开放对话 PTT 端到端真机冒烟 ×≥3（连→session.start→说→看画面→答；字幕显示；首响达标） | 全 · 真机 | 否 | 开放动线连贯演 ≥3；首响 ≤config 目标（填充语盖往返）；半双工无自激 |
 
-> 硬门：开放对话基座跑通——接任意请求、不编造、不落死分支、loop 稳。**agentic 硬门**：基座循环 3 次干跑不稳→准备切 rails。
-
----
-
-## M3 · 开放场景真机端到端（含真实云语音）·**新增前置**｜PRD §5.1 基座 + §7.5 语音第一风险｜止损：4h 裸语音链路不通→退 MOCK_TTS 字幕+文字键入；7h 自激压不住→锁半双工+对讲机；真机延迟不达标→填充语/复述盖往返
-
-> **缘起**：M3 = 回收 M1 §7.5 语音**真实供应商欠债**（M1-06/07 只交付骨架+MOCK，asr/tts 真路径仍 `NotImplementedError`、孤儿）+ M2 基座**真机验证**。不是净增范围，是把 M1 滑期的「真机第一风险」补回并前置。
-> **目标**：对着笔记本摄像头+麦克风，用**语音**和开放助手对话，**脑(deepseek)/眼(gemini)/声(真云 ASR/TTS) 全真**，端到端跑通。
-
-| ID | 任务 | 负责模块 | 工时 | 依赖契约 | MOCK 并行 | 验收标准 |
-|---|---|---|---|---|---|---|
-| M3-01 | 拍 gemini 生态 STT/TTS 型号 + `providers.py` 迁 `google.genai`（弃 deprecated `google-generativeai`） | B/llm | ✅ | 七 | — | `config.roles.asr/tts` 落型号；`client_for_role("asr"/"tts")` 真客户端可建；现有 vision 真路径不回归（真路径联网回归移交 M3-06） |
-| M3-02 | 真实云 ASR 适配器（`asr_adapter` 真路径：流式音频→`asr.final` 带 confidence）（接 M1-06 欠债） | B | 2h | 二 | `MOCK_ASR` 仍可 | 真机出中文真转写；空/噪声不崩；MOCK 路径不破 |
-| M3-03 | 真实云 TTS 适配器（`tts_adapter` 真路径：按句流式→`TtsFrame` + stop 语义）（接 M1-07 欠债） | B | 2h | 二 | `MOCK_TTS` 仍可 | 真机出真人声；首句先播；stop=立停+清队列+ack；MOCK 不破 |
-| M3-04 | 前端↔后端真机语音闭环联调（mic→WS→ASR→planner→TTS→播放；半双工 gate/打断/自激） | B/A | 2h | 二/四 | 否（真机） | 对讲机说→AI 答全程真机；AI_SPEAKING 半双工无自激；打断按键演；§7.5 止损可踩 |
-| M3-05 | planner 软超时真机校准（deepseek p50/p95 实测→重定 `planner_timeout_ms` 或改「首 token」语义）（原 M5-07） | A | 1h | 八 | 否（真机） | 真 planner 不被频繁误兜底；改 config 一处生效；动 PRD §7.2 口径需决策人确认 |
-| M3-06 | 真机抓帧→真眼联调（前端摄像头帧→`observe`/`read_problem` 真 gemini，非 fixture） | C/A | 1.5h | 三 | 否（真机） | 真帧出合规结果；逆光/模糊→低置信→诚实兜底（真路径）；视觉预算不超 |
-| M3-07 | 开放对话真机行为验证（越界→帮不上/看不清→明说/不落死分支，真 deepseek+OPEN_STYLE；补 m2-wiring-seams 缺口） | A/E | 1h | §5.4 | 否（真机，需 keys） | 真 LLM 行为符合诚实兜底口径；任意输入≥一条 tts.say、不崩 |
-| M3-08 | 开放场景真机端到端冒烟 ×≥3（陌生话/问画面/越界 混合动线，连续不崩、首响达标、无自激） | A/B/C | 1h | — | 否（真机） | 全开放动线真机连贯演 ≥3 次；首响 ≤1.5s（填充语盖往返）；半双工无自激 |
-
-> 硬门：**开放场景真机闭环跑通**——能对着摄像头+麦克风用语音和开放助手对话、看不清/帮不上诚实说明、不落死分支、无自激、首响达标。语音止损线见 §7.5（4h/7h）。真机暴露的延迟/型号问题改 config 一处；动 PRD 口径需决策人确认。
+> 硬门：**开放对话真机闭环跑通**——对着摄像头+麦克风用语音聊、看不清/帮不上诚实说明、不编造、首响达标、无自激。
 
 ---
 
-## M4 · 学习收窄（P0 demo 锚）｜硬门：循环 3 次干跑不稳→切 rails
+## M2 · 双语音模式 + 打断高光（PRD §4.3 / §4.4）
 
-| ID | 任务 | 负责模块 | 工时 | 依赖契约 | MOCK 并行 | 验收标准 |
-|---|---|---|---|---|---|---|
-| M4-01 | 学习主路径联调（识题→帮解→批改）+ 置信门控（原 M3-01／更早 M2-02） | A/C | 2h | 三/八 | 先 MOCK 后真 | mock→真工具跑通；低置信→不报错改请念该行 |
-| M4-02 | C check_draft 四值 verdict 实现（原 M3-02／更早 M2-03） | C | 2h | 三 | `MOCK_VISION` | 四值各样例正确；found_error 必带 error_line/type |
-| M4-03 | 坐姿放行并入 active_problem（根因解耦）（原 M3-03／更早 M2-04） | A | 1h | 四/§3.2.2 | 可 | mode 抖动不吞 alert 的单测通过 |
-| M4-04 | 坐姿导演触发联调（强 learning 信号→驼背→间隙提醒）（原 M3-04／更早 M3-05） | A/D | 1.5h | 四 | 部分 | 导演触发稳定演一次；放行不被 mode 抖动吞 |
-| M4-05 | 答案护栏（可选，默认关）正则组合拦截骨架（原 M3-05／更早 M2-07） | A/E | 1.5h | 九 | 可 | 开启时命中替换追问；循环外；生活语境数字不误杀（基础） |
-| M4-06 | rails 切换接线（注入 forced_tool_sequence + max_tool_rounds→0，先锁学习工具序）（原 M3-06／更早 M2-06） | A | 1.5h | 八 | 可 | config 切 rails：注入工具序+answer 节点，agent 只填语言 |
-| M4-07 | E 学习/引导 prompt 调参 + 护栏测试（原 M3-07／更早 M2-08 学习部分） | E | 1.5h | 八 | `MOCK_LLM` | 引导话术得当；护栏测试通过 |
+| ID | 任务 | 轨 / 模块 | MOCK 并行 | 验收标准 |
+|---|---|---|---|---|
+| M2-01 | 前端三态：对讲机 PTT（按下/松手发 `input.activity_*` 边界）+ 自由对话（连续流，靠 Live 原生 VAD 判轮次）+ 切换 | 前端 · voice | MOCK_LIVE | PTT 确定性轮次；自由免按；切换顺滑 |
+| M2-02 | 后端：PTT 边界 → Live `activityStart/End`；自由模式不发边界（交模型 VAD） | 后端 · relay | — | 对讲机轮次准；自由靠模型断轮次 |
+| M2-03 | barge-in 真机（自由对话模型说话时用户开口打断）+ 半双工 gate + 内建 AEC | 真机 · voice/relay | 否 | 打断流畅；半双工无自激；高光可演 / 翻车可切回对讲机 |
+| M2-04 | 运行时切换全链路：右上切 `mode`（换 profile + 工具子集）/ 模式内切 `voice_mode` / 字幕开关（`session.update`） | 并行 · ui/relay | MOCK_LIVE | 三类切换即时生效；切 mode 重配会话 |
 
 ---
 
-## M5 · 生活收窄（唯一牺牲位）｜落后 / 36h 框告急 → 整段砍（observe 已在基座 M2、开放真机不受损）
+## M3 · 学习收窄（P0 demo 锚）
 
-| ID | 任务 | 负责模块 | 工时 | 依赖契约 | MOCK 并行 | 验收标准 |
-|---|---|---|---|---|---|---|
-| M5-01 | weather_get（Open-Meteo+缓存+写死兜底）+ 自动定位回落上海（原 M4-01） | A/工具 | 2h | weather/七 | `MOCK_WEATHER` | 真实+断网兜底+定位失败静默回落，绝不阻塞 |
-| M5-02 | 生活编排（observe+weather→行动建议）（原 M4-02） | A | 1.5h | 八 | 可 | 穿搭结论含可执行动作；默认不念具体城市/温度 |
-| M5-03 | E 穿搭 prompt（原 M4-03） | E | 1h | 八 | `MOCK_LLM` | 穿搭话术给到可执行动作 |
-
----
-
-## M6 · 加固｜验收：任一降级路径可演；rails 彩排过一次
-
-> = 原 M5（加固），里程碑号 M5→M6、任务 ID M5-0x→M6-0x；原 M5-07（planner 软超时校准）已前移到 **M3-05**（真机首先暴露）。
-
-| ID | 任务 | 负责模块 | 工时 | 依赖契约 | MOCK 并行 | 验收标准 |
-|---|---|---|---|---|---|---|
-| M6-01 | rails 切换全链路彩排（原 M5-01） | A | 1.5h | 八 | 可 | rails 路径可连贯演一次 |
-| M6-02 | 对讲机/半双工/自由对话切换 + 翻车切回（建在 M3 真机语音之上）（原 M5-02） | B | 2h | 二/四 | 否（真机） | 三态切换顺滑；半双工下无自激；自由对话作高光 |
-| M6-03 | 口述批改降级 + 断网天气兜底 + TTS 失败回退字幕（原 M5-03） | A/B/C | 2h | 五 | 可 | 各降级路径可演 |
-| M6-04 | 答案护栏误杀专测（含生活语境数字：温度/年龄/楼层）（原 M5-04） | A/E | 1.5h | 九 | 可 | 误杀专测全过；纯字符串无延迟 |
-| M6-05 | loop/失控专测 + 视觉预算触顶 FALLBACK_TEXT（原 M5-05） | A | 1.5h | 八 | 可 | 触顶不超调、不超 loop 上限 |
-| M6-06 | 开放兜底专测（越界/低置信/双意图诱导）（原 M5-06） | A/E | 1.5h | §5.2 | `MOCK_LLM` | 各边界诚实兜底；防误锁 learning |
+| ID | 任务 | 轨 / 模块 | MOCK 并行 | 验收标准 |
+|---|---|---|---|---|
+| M3-01 | `check_draft` 真帧批改：三值 `verdict` + `error_line` + `error_type`（只定位错误行，不报答案） | 后端 · tools | MOCK_VISION | 三值各样例对；found_error 必带 error_line |
+| M3-02 | D 端侧 MediaPipe 双条件检测（颈/背夹角 + 头前伸）+ 持续 `hunchback_hold_ms`(30s) | 前端 · posture | — | 双条件持续才触发；低头写字不误触；只发 alert 不出声 |
+| M3-03 | 客户端坐姿放行门控（`mode==learning` 或 `active_problem!=null`）+ gap 闸门（静默≥阈）+ `reminder_count++` | 前端 · posture/client_state | — | mode 抖动不吞 alert；非缝隙不注入；次数累计 |
+| M3-04 | 后端：`posture.alert` 作为 text 事件注入 Live 会话（proactive 择时 + 措辞：缝进进度/次数，最多等一句） | 后端 · relay | — | 提醒缝进「第二步/第 3 次」；不打断关键思路 |
+| M3-05 | skills 学习 profile 调参：分步引导阶梯（方向/操作/示范）+ 批改口径 + 坐姿措辞 | 并行 · skills | MOCK_LIVE | 引导得当；绝不顺嘴报答案 |
+| M3-06 | 学习动线真机 + 坐姿导演触发联调（识题→帮解→批改→缝隙提醒） | 全 · 真机 | 否 | 主路径连贯；坐姿提醒不被 mode 抖动吞；30s 下低头写字不误报 |
 
 ---
 
-## M7 · 彩排
+## M4 · 生活收窄（唯一牺牲位）｜落后 / 时间告急 → 整段砍（开放/学习不受损）
 
-> = 原 M6（彩排），里程碑号 M6→M7。PRD §10/§11：彩排×3、非标准正确解法专测、模糊草稿验 unreadable、坐姿导演触发（验放行不被吞 + 30s 阈值下低头写字不误触）、开放对话陌生题/物体 ≥3 + 双意图诱导 + 防误锁 learning、噪声一轮、工具序一致性专测等，本表不展开。
+| ID | 任务 | 轨 / 模块 | MOCK 并行 | 验收标准 |
+|---|---|---|---|---|
+| M4-01 | `weather_get` 真 Open-Meteo（httpx）+ 城市/小时缓存 + 断网/定位失败写死兜底（绝不阻塞） | 后端 · tools | MOCK_WEATHER | 真实 + 断网兜底 + 回落上海，任何失败不抛 |
+| M4-02 | 前端定位：`navigator.geolocation` → 随 weather 调用注入 lat/lon；拒绝/失败静默 | 前端 · ui/client_state | — | 定位失败不阻塞；回落默认城市 |
+| M4-03 | skills 生活 profile：observe + weather 融合 → 具体到行动建议（加外套/带伞），不播报数字 | 并行 · skills | MOCK | 穿搭结论含可执行动作；默认不念城市/温度 |
+
+---
+
+## M5 · 加固（降级路径，PRD §5 / §8）
+
+| ID | 任务 | 轨 / 模块 | MOCK 并行 | 验收标准 |
+|---|---|---|---|---|
+| M5-01 | Live/TTS 断流 → 字幕兜底 + 文字输入（`text.input` 注入会话）；`error` 事件驱动 UI 降级 | 并行 · relay/ui | — | 各降级路径可演；字幕 + 文字键入可继续 |
+| M5-02 | 视觉预算触顶「我已看过，念给我听」+ 低置信诚实兜底（提示词约束）真机验 | 真机 · tools/skills | MOCK_VISION | 触顶不超调；逆光/模糊 → 低置信不编造 |
+| M5-03 | 断网天气兜底 + 定位回落 + Live 断线重连预热 | 真机 · tools/relay | MOCK_WEATHER | 弱网不崩；兜底可演 |
+| M5-04 | 越界帮不上 + 模式误判自纠 + 防误锁 learning 专测 | 并行 · skills | MOCK_LIVE | 各边界诚实兜底；session memory 自纠 |
+
+---
+
+## M6 · 彩排
+
+> PRD §5：彩排 ×3、开放对话陌生题/物体 ≥3 + 越界请求、学习识题→批改→坐姿导演触发（验放行不被吞 +
+> 30s 阈值下低头写字不误报）、生活穿搭一次、双语音模式切换 + 高光翻车切回、噪声一轮、首响达标、
+> 半双工无自激、断网/TTS 失败降级各演一次。本表不展开。

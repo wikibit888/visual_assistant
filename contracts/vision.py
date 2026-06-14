@@ -1,9 +1,16 @@
-"""契约三 · 视觉结果 schema（PRD §7.7，形态 = 文档 + Pydantic）。
+"""契约八 · 视觉工具结果 schema（PRD §3 工具注册表 / §5，形态 = 文档 + Pydantic）。
 
-三种 kind：read_problem / check_draft / observe（§7.3 工具注册表）。
-批改强制 **四值 verdict**（附录 A）+ error_line/error_type/confidence。
-confidence 进 **置信门控**（契约/护栏，config `orchestration.confidence_gate`）：
-低于阈值 → 护栏不播报错误、改请用户口述（PRD §7.4）。
+三个视觉工具（function_call → 后端工具执行体）的返回。**不经客户端 WS**：是后端 `function_response`
+回给 Live 模型的结构化结果（客户端只通过 tool.activity 感知工具在动）。
+
+确定性落点（PRD §1 / §4.1 绿层）：工具执行体抓帧 + 调视觉识别（gemini-2.5-flash）→ 返回带
+`confidence` 的结构化结果，**绝不编造**。低置信如何处理 = **提示词约束**（系统提示告诉模型
+「confidence 低就请用户挪近 / 口述，别硬读」，PRD §5），不再有出站文本护栏。视觉次数由工具执行层
+按 `config.session.vision_budget_per_problem` 计数封顶（PRD §5 抓帧超预算）。
+
+  - look_at_page → {text, confidence}      看一眼纸面：识题 or 读草稿原文（不解题）
+  - check_draft  → {verdict, error_line?, confidence}  批改：只定位错误「行+类型」，不报正确答案
+  - observe      → {description, confidence} 看画面里的东西（穿搭/随手物体），一句客观描述
 """
 
 from enum import Enum
@@ -13,22 +20,21 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class VisionKind(str, Enum):
-    READ_PROBLEM = "read_problem"
+    LOOK_AT_PAGE = "look_at_page"
     CHECK_DRAFT = "check_draft"
     OBSERVE = "observe"
 
 
 class Verdict(str, Enum):
-    """四值 verdict（附录 A）—— 批改结果的封闭取值。"""
+    """批改判决（封闭取值）。低置信不再是 verdict——`confidence` 是独立字段，由提示词约束处置。"""
 
-    FOUND_ERROR = "found_error"        # 定位到错误（须给 error_line）
-    ALL_CORRECT = "all_correct"        # 全对
-    UNREADABLE = "unreadable"          # 看不清/无法识别（诚实兜底，不编造）
-    LOW_CONFIDENCE = "low_confidence"  # 识别了但置信不足（门控拦截，改请念该行）
+    FOUND_ERROR = "found_error"   # 定位到错误（必须给 error_line）
+    ALL_CORRECT = "all_correct"   # 全对
+    UNREADABLE = "unreadable"     # 看不清/无法识别（诚实兜底，不编造）
 
 
 class ErrorType(str, Enum):
-    """error_type 占位枚举；具体细化由 C/E 推进，不属 M0 红线。"""
+    """error_type 占位枚举；具体细化由工具执行体/提示词推进，非红线。"""
 
     SIGN_ERROR = "sign_error"
     TRANSPOSE_ERROR = "transpose_error"  # 移项符号错误（演示预埋）
@@ -36,16 +42,16 @@ class ErrorType(str, Enum):
     OTHER = "other"
 
 
-class ReadProblemResult(BaseModel):
-    """payload of vision.result（kind=read_problem）。识题成功后缓存 active_problem。"""
+class LookAtPageResult(BaseModel):
+    """function_response of look_at_page。识题 or 读草稿：原样转写纸面文本，不解题、不补全。"""
 
-    kind: VisionKind = VisionKind.READ_PROBLEM
-    problem_text: str
+    kind: VisionKind = VisionKind.LOOK_AT_PAGE
+    text: str = Field(..., description="画面中纸面文本的原样转写")
     confidence: float = Field(..., ge=0.0, le=1.0)
 
 
 class CheckDraftResult(BaseModel):
-    """payload of vision.result（kind=check_draft）。只定位错误行与类型，不报正确答案。"""
+    """function_response of check_draft。只定位第一处错误「行+类型」，不报正确答案。"""
 
     kind: VisionKind = VisionKind.CHECK_DRAFT
     verdict: Verdict
@@ -58,12 +64,12 @@ class CheckDraftResult(BaseModel):
     @model_validator(mode="after")
     def _found_error_needs_line(self):
         if self.verdict == Verdict.FOUND_ERROR and self.error_line is None:
-            raise ValueError("verdict=found_error 必须给出 error_line（契约三）")
+            raise ValueError("verdict=found_error 必须给出 error_line（契约八）")
         return self
 
 
 class ObserveResult(BaseModel):
-    """payload of vision.result（kind=observe）。穿搭/即兴物体通用。"""
+    """function_response of observe。穿搭/即兴物体：一句客观描述，只陈述所见。"""
 
     kind: VisionKind = VisionKind.OBSERVE
     description: str

@@ -1,0 +1,4 @@
+{"type": "transcript", "ts": 1718200020000, "channel": "transcript", "schema_version": "0.1", "payload": {"role": "user", "text": "这道题不会写", "final": true}}
+{"type": "transcript", "ts": 1718200020500, "channel": "transcript", "schema_version": "0.1", "payload": {"role": "assistant", "text": "先想怎么把 x 挪到一边", "final": false}}
+{"type": "tool.activity", "ts": 1718200021000, "channel": "transcript", "schema_version": "0.1", "payload": {"name": "look_at_page", "phase": "start"}}
+{"type": "tool.activity", "ts": 1718200021800, "channel": "transcript", "schema_version": "0.1", "payload": {"name": "look_at_page", "phase": "done", "summary": "看了一眼题目"}}

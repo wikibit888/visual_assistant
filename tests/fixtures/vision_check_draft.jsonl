@@ -1,4 +1,3 @@
-{"type": "vision.result", "ts": 1718265603000, "turn_id": "t-000003", "channel": "vision", "payload": {"kind": "check_draft", "verdict": "found_error", "error_line": 2, "error_type": "transpose_error", "confidence": 0.91}, "schema_version": "0.1"}
-{"type": "vision.result", "ts": 1718265603100, "turn_id": "t-000004", "channel": "vision", "payload": {"kind": "check_draft", "verdict": "all_correct", "confidence": 0.95}, "schema_version": "0.1"}
-{"type": "vision.result", "ts": 1718265603200, "turn_id": "t-000005", "channel": "vision", "payload": {"kind": "check_draft", "verdict": "unreadable", "confidence": 0.20}, "schema_version": "0.1"}
-{"type": "vision.result", "ts": 1718265603300, "turn_id": "t-000006", "channel": "vision", "payload": {"kind": "check_draft", "verdict": "low_confidence", "confidence": 0.45}, "schema_version": "0.1"}
+{"kind": "check_draft", "verdict": "found_error", "error_line": 2, "error_type": "transpose_error", "confidence": 0.91}
+{"kind": "check_draft", "verdict": "all_correct", "confidence": 0.95}
+{"kind": "check_draft", "verdict": "unreadable", "confidence": 0.20}
