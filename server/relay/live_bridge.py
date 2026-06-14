@@ -84,6 +84,19 @@ def _patch_live_keepalive(cfg: dict) -> None:
     log.info("Live keepalive 放宽：ping_interval=%ss ping_timeout=%ss", ping_interval, ping_timeout)
 
 
+def _is_transient_connect_error(e: BaseException) -> bool:
+    """Live 连接 __aenter__ 的异常是否「瞬时」（值得重试）。
+
+    瞬时（弱链路一抖即过，重试多半成功）：连接重置/超时/TLS·握手抖动。ConnectionResetError 是 OSError
+    子类，故 OSError 一网打尽连接层错误（含 SOCKS/TLS 握手 reset）。永久错误（鉴权失败/模型不存在的
+    APIError、NotImplementedError、配置/解析错）不在此返回 True → 不重试、直接抛，免空耗（PRD §5）。
+    """
+    if isinstance(e, (ConnectionError, TimeoutError, asyncio.TimeoutError, OSError)):
+        return True
+    name = type(e).__name__  # websockets 握手/连接关闭等按类型名近似，不强依赖 websockets 导入
+    return any(k in name for k in ("ConnectionClosed", "Handshake", "InvalidState", "WebSocketException"))
+
+
 SendEvent = Callable[[Envelope], Awaitable[None]]
 SendAudio = Callable[[bytes], Awaitable[None]]
 
@@ -370,8 +383,35 @@ class LiveBridge:
         _patch_live_keepalive(self.cfg)  # 方案A：放宽 ws keepalive（进程级只打一次，扛 China→Google 抖动）
         client = providers.client_for_role("live", self.cfg)
         model = self.cfg["roles"]["live"]["model"]  # 模型名进 config（契约·配置）
-        self._live_cm = client.aio.live.connect(model=model, config=self._build_live_config())
-        self._live = await self._live_cm.__aenter__()
+
+        # 连接重试（方案C，PRD §5 China→Google 实时流抖动）：__aenter__ 的 TLS/SOCKS 握手在弱链路上
+        # 偶发 ConnectionResetError 等**瞬时**错误，单次连接一抖就整会话失败、前端弹「连接断开」。这里对
+        # 瞬时连接错误做有限重试（次数/退避进 config，禁硬编码），多数一抖即过；非瞬时错误（鉴权/模型/
+        # NotImplementedError）不重试、直接抛由上层降级。仅 __aenter__ 成功后才持有 _live_cm（失败的 cm
+        # 不留存，免 aclose 时对未进入的 cm 调 __aexit__）。
+        session_cfg = self.cfg.get("session", {}) or {}
+        retry_max = int(session_cfg.get("live_connect_retry_max", 2))
+        backoff_ms = int(session_cfg.get("live_connect_retry_backoff_ms", 400))
+        attempt = 0
+        while True:
+            cm = client.aio.live.connect(model=model, config=self._build_live_config())
+            try:
+                self._live = await cm.__aenter__()
+                self._live_cm = cm  # 仅成功时持有，供 aclose 时 __aexit__ 收尾
+                if attempt:
+                    log.info("Live 连接在第 %d 次重试后成功", attempt)
+                return
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                attempt += 1
+                if attempt > retry_max or not _is_transient_connect_error(e):
+                    raise  # 重试耗尽 / 非瞬时错误 → 抛出，由上层降级（_emit_live_error / server_error）
+                log.warning(
+                    "Live 连接第 %d 次失败（%s: %s），%dms 后重试",
+                    attempt, type(e).__name__, e, backoff_ms,
+                )
+                await asyncio.sleep(backoff_ms / 1000)
 
     async def _reconfigure_session(self) -> None:
         """切 mode 后换系统提示 profile + 工具子集（Gemini Live 经重开会话注入新 config）。

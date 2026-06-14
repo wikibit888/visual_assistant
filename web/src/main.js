@@ -92,6 +92,9 @@ class App {
     // 二进制帧 = 下行音频（PCM24，裸字节、不裹信封；contracts/envelope.py）。
     if (ev.data instanceof ArrayBuffer) {
       if (this.voice) this.voice.enqueueDownlink(ev.data);
+      // 收到下行音频 = 链路已恢复正常 → 撤掉残留错误条（自愈，不靠刷新）。错误条只在 session.ready
+      // 清不够：后端错误（live_disconnected/server_error）不关 WS，恢复后无新 session.ready，残留不消。
+      this.ui.clearError();
       return;
     }
     const env = parse(ev.data);
@@ -134,6 +137,7 @@ class App {
       }
 
       case MessageType.TRANSCRIPT: // 字幕/历史（仅 subtitles=true 时来）
+        this.ui.clearError(); // 收到后端转写 = 链路在工作 → 撤掉残留错误条（仅后端转写会进此分支，本地回显不走 WS）
         this.ui.appendTranscript(env.payload || {});
         break;
 
