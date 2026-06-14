@@ -2,3 +2,4 @@
 {"type": "session.update", "ts": 1718200001000, "channel": "session", "schema_version": "0.1", "payload": {"mode": "learning"}}
 {"type": "session.update", "ts": 1718200002000, "channel": "session", "schema_version": "0.1", "payload": {"voice_mode": "free", "subtitles": false}}
 {"type": "session.ready", "ts": 1718200003000, "channel": "session", "schema_version": "0.1", "payload": {"session_id": "s-abc123", "mode": "open", "voice_mode": "ptt"}}
+{"type": "session.start", "ts": 1718200004000, "channel": "session", "schema_version": "0.1", "payload": {"mode": "life", "voice_mode": "ptt", "subtitles": true, "lat": 31.23, "lon": 121.47}}

@@ -27,7 +27,7 @@ export const Channel = Object.freeze({
 // 全量 WS 消息类型（contracts/protocol.py MessageType）。
 export const MessageType = Object.freeze({
   // —— 会话生命周期（SESSION）——
-  SESSION_START: "session.start", // 客户端→后端：开 Live 会话  payload {mode, voice_mode, subtitles}
+  SESSION_START: "session.start", // 客户端→后端：开 Live 会话  payload {mode, voice_mode, subtitles, lat?, lon?}
   SESSION_UPDATE: "session.update", // 客户端→后端：运行时切换    payload {mode?, voice_mode?, subtitles?}
   SESSION_READY: "session.ready", // 后端→客户端：会话就绪      {session_id, mode, voice_mode}
 

@@ -141,3 +141,11 @@ def test_posture_alert_reminder_count_optional():
     )
     with pytest.raises(Exception):  # ge=1：0 / 负数非法
         PostureAlert.model_validate({"severity": "hunchback", "ts": 1, "reminder_count": 0})
+
+
+def test_session_start_geo_optional():
+    """契约二：session.start 的 lat/lon 可选（生活模式定位）——缺省=None，带时成对 float。"""
+    s0 = SessionStart.model_validate({"mode": "life", "voice_mode": "ptt", "subtitles": True})
+    assert s0.lat is None and s0.lon is None
+    s1 = SessionStart.model_validate({"mode": "life", "lat": 31.23, "lon": 121.47})
+    assert s1.lat == 31.23 and s1.lon == 121.47

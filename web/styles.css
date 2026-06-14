@@ -31,6 +31,13 @@ body {
   color: var(--text);
 }
 
+/* 整体缩小至 70%：一个 Chrome 页面看全所有内容、免下拉（PRD §3 Chrome-only）。
+   用 Chrome 的 zoom（会重排，100vh 随之适配、铺满不留白；transform:scale 会留空导致滚动，不用）。
+   0.7 是「整体缩小 70%」的直观值，按屏幕大小可微调（值越小越宽松）。 */
+body {
+  zoom: 0.7;
+}
+
 [hidden] {
   display: none !important;
 }

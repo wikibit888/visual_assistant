@@ -200,12 +200,14 @@ class App {
 
   // ── 会话生命周期：start / update ──
   _sendSessionStart() {
-    const { mode, voiceMode, subtitles } = this.session;
-    this._send(MessageType.SESSION_START, Channel.SESSION, {
-      mode,
-      voice_mode: voiceMode,
-      subtitles,
-    });
+    const { mode, voiceMode, subtitles, lat, lon } = this.session;
+    const payload = { mode, voice_mode: voiceMode, subtitles };
+    // 定位可用才带（lat/lon 成对）：缺省 → 后端 weather_get 回落默认城市（契约二 SessionStart 可选字段）。
+    if (typeof lat === "number" && typeof lon === "number") {
+      payload.lat = lat;
+      payload.lon = lon;
+    }
+    this._send(MessageType.SESSION_START, Channel.SESSION, payload);
   }
 
   _onModeChange(mode) {

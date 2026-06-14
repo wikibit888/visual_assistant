@@ -28,7 +28,7 @@
 
 | MessageType | 方向 | channel | payload 模型 |
 |---|---|---|---|
-| `session.start` | C→S | session | `session.SessionStart` |
+| `session.start` | C→S | session | `session.SessionStart`（`{mode, voice_mode, subtitles, lat?, lon?}`；lat/lon = 客户端 geolocation，生活模式注入 weather_get，缺省回落默认城市） |
 | `session.update` | C→S | session | `session.SessionUpdate` |
 | `session.ready` | S→C | session | `session.SessionReady` |
 | `input.activity_start` | C→S | audio | `{}`（空载，PTT 按下信号） |
